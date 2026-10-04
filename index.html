@@ -2,2310 +2,681 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Minecraft 3D Web Sandbox - Oakvale Village (Debugged)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Oakvale Village 3D - Craft & Build</title>
+
+  <!-- ================================================================= -->
+  <!-- GOOGLE ADMOB / H5 GAMES ADS SDK INITIALIZATION                   -->
+  <!-- ================================================================= -->
+  <!-- Replace ca-pub-XXXXXXXXXXXXXXXX and slot IDs with your live IDs. -->
+  <!-- Set data-adbreak-test="off" (or remove it) in production.         -->
+  <script async
+    data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+    data-ad-frequency-hint="30s"
+    data-adbreak-test="on"
+    data-admob-interstitial-slot="ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY"
+    data-admob-rewarded-slot="ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ"
+    crossorigin="anonymous"
+    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
+  </script>
+
+  <script>
+    // Initialize Google Ad Placement API Queues
+    window.adsbygoogle = window.adsbygoogle || [];
+    window.adBreak = window.adConfig = function(o) { adsbygoogle.push(o); };
+
+    // Configure Ad Breakouts
+    window.adConfig({
+      preloadAdBreaks: 'on',
+      sound: 'on',
+      onReady: () => {
+        console.log('[AdMob] Google Ad Placement API ready');
+        if (window.AdManager) window.AdManager.isReady = true;
+      }
+    });
+  </script>
+
+  <!-- External Styles & 3D Engine Dependencies -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <style>
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body, html {
+    body {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
-      touch-action: none;
-      background-color: #0a0a0a;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #000;
     }
     #canvas-container {
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    .hud-element {
       position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 0;
+      pointer-events: auto;
     }
-    .crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 16px;
-      height: 16px;
-      pointer-events: none;
-      z-index: 20;
+    .pixel-art {
+      image-rendering: pixelated;
     }
-    .crosshair::before, .crosshair::after {
-      content: '';
-      position: absolute;
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+    /* Toast animation for rewards & notifications */
+    @keyframes toastFade {
+      0% { opacity: 0; transform: translateY(-20px); }
+      15% { opacity: 1; transform: translateY(0); }
+      85% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-20px); }
     }
-    .crosshair::before {
-      top: 7px; left: 0; width: 16px; height: 2px;
-    }
-    .crosshair::after {
-      top: 0; left: 7px; width: 2px; height: 16px;
-    }
-    .pixel-border {
-      box-shadow: inset -2px -2px 0px 0px #1a1a1a, inset 2px 2px 0px 0px #555555;
-    }
-    .hotbar-slot-active {
-      border-color: #facc15 !important;
-      box-shadow: 0 0 12px rgba(250, 204, 21, 0.75), inset 0 0 6px rgba(250, 204, 21, 0.5);
-      transform: translateY(-3px) scale(1.06);
-      z-index: 10;
-    }
-    .touch-btn {
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-      transition: transform 0.08s ease, filter 0.08s ease;
-      cursor: pointer;
-    }
-    .touch-btn:active {
-      transform: scale(0.92);
-      filter: brightness(1.2);
-    }
-    .dpad-btn {
-      background: rgba(25, 25, 25, 0.82);
-      border: 2px solid rgba(120, 120, 120, 0.75);
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(4px);
-    }
-    .dpad-btn:active, .dpad-btn.active {
-      background: rgba(217, 119, 6, 0.92) !important;
-      border-color: #f59e0b !important;
-    }
-    #held-item-container {
-      position: absolute;
-      bottom: -15px;
-      right: 14%;
-      width: 120px;
-      height: 120px;
-      pointer-events: none;
-      z-index: 15;
-      transform-origin: bottom right;
-      transition: transform 0.08s ease-out;
-    }
-    .punch-anim {
-      animation: punchKeyframes 0.22s ease-out forwards;
-    }
-    @keyframes punchKeyframes {
-      0% { transform: translateY(0) rotate(0deg); }
-      40% { transform: translateY(35px) translateX(-30px) rotate(-35deg); }
-      100% { transform: translateY(0) rotate(0deg); }
-    }
-    #speech-bubble {
-      transition: opacity 0.2s ease, transform 0.2s ease;
+    .toast-anim {
+      animation: toastFade 3s ease forwards;
     }
   </style>
 </head>
-<body class="bg-black text-white select-none overflow-hidden">
+<body class="relative w-screen h-screen">
 
   <!-- 3D Canvas -->
   <div id="canvas-container"></div>
-  <div class="crosshair"></div>
 
-  <!-- First-Person Held Item Graphic -->
-  <div id="held-item-container" class="hidden sm:block">
-    <div id="held-item-cube" class="w-24 h-24 relative transform -rotate-12 translate-y-2 drop-shadow-2xl">
-      <div id="held-item-preview" class="w-full h-full rounded-2xl border-4 border-amber-300/40 bg-neutral-800 flex flex-col items-center justify-center p-2 pixel-border">
-        <span id="held-item-icon" class="text-3xl mb-0.5">🧱</span>
-        <span id="held-item-name" class="text-[10px] font-black text-amber-300 text-center truncate max-w-full">Cobblestone</span>
+  <!-- In-Game Notification Banner (Toast) -->
+  <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center space-y-2"></div>
+
+  <!-- Crosshair -->
+  <div id="crosshair" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+    <div class="w-4 h-0.5 bg-white opacity-70 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+    <div class="h-4 w-0.5 bg-white opacity-70 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+  </div>
+
+  <!-- Top HUD Bar -->
+  <div class="hud-element top-4 left-4 right-4 flex justify-between items-center z-20 pointer-events-none">
+    <div class="flex items-center space-x-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-white pointer-events-auto">
+      <span class="text-xl">🏡</span>
+      <div>
+        <h1 class="font-bold text-sm leading-tight">Oakvale Village</h1>
+        <p id="pos-display" class="text-xs text-gray-300">X: 0, Y: 0, Z: 0</p>
       </div>
     </div>
-  </div>
 
-  <!-- Top Left HUD (Debug, Coordinates & Village Info) -->
-  <div id="debug-overlay" class="absolute top-2.5 left-3 z-20 text-[11px] bg-black/80 backdrop-blur-md px-3 py-2 rounded-xl border border-neutral-700 pointer-events-none space-y-0.5 shadow-2xl max-w-[240px] sm:max-w-none">
-    <div class="flex items-center gap-1.5 text-emerald-400 font-extrabold text-[11px] tracking-wider">
-      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> VOXEL ENGINE 3D
-    </div>
-    <div class="flex items-center gap-2 text-neutral-300">
-      <span id="fps-counter">FPS: 60</span>
-      <span class="text-neutral-500">|</span>
-      <span id="time-counter" class="text-amber-300 font-bold">☀️ Day</span>
-      <span class="text-neutral-500">|</span>
-      <span class="text-amber-400 font-semibold">📍 Oakvale</span>
-    </div>
-    <div id="pos-counter" class="text-neutral-300 font-mono text-[10px]">XYZ: 14.0 / 33.5 / 26.5 (E)</div>
-    <div id="target-counter" class="text-amber-300 font-semibold truncate text-[10px]">Target: None</div>
-  </div>
-
-  <!-- Top Right Action Buttons -->
-  <div class="absolute top-2.5 right-3 z-20 flex items-center gap-1.5 sm:gap-2">
-    <button id="btn-fullscreen" class="touch-btn p-2 sm:px-3 sm:py-2 bg-neutral-800/90 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl border border-neutral-600 shadow-xl backdrop-blur-sm flex items-center gap-1">
-      <span>⛶</span> <span class="hidden md:inline">Fullscreen</span>
-    </button>
-    <button id="btn-toggle-inv" class="touch-btn flex items-center gap-1.5 px-3 py-2 bg-neutral-800/90 hover:bg-neutral-700 text-amber-400 font-bold text-xs rounded-xl border border-neutral-600 shadow-xl backdrop-blur-sm">
-      🎒 <span>Craft (E)</span>
-    </button>
-    <button id="btn-talk" class="touch-btn px-2.5 sm:px-3 py-2 bg-amber-600/90 hover:bg-amber-500 text-white font-bold text-xs rounded-xl border border-amber-400 shadow-xl backdrop-blur-sm flex items-center gap-1">
-      🗣️ <span>Talk</span>
-    </button>
-    <button id="btn-menu" class="touch-btn px-2.5 sm:px-3 py-2 bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 font-bold text-xs rounded-xl border border-neutral-600 shadow-xl backdrop-blur-sm">
-      ⚙️ Menu
-    </button>
-  </div>
-
-  <!-- Notification Banner -->
-  <div id="hud-message" class="absolute top-14 left-1/2 -translate-x-1/2 z-30 text-xs sm:text-sm font-bold bg-neutral-900/95 px-4 py-1.5 rounded-full border border-neutral-600 transition-opacity duration-300 opacity-0 pointer-events-none text-yellow-300 shadow-2xl backdrop-blur-sm">
-    Welcome to Oakvale Village!
-  </div>
-
-  <!-- Interactive Villager Speech Dialogue Card -->
-  <div id="speech-bubble" class="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-sm w-[90vw] sm:w-auto bg-neutral-900/95 border-2 border-amber-400 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-neutral-100 flex items-start gap-2.5 opacity-0 pointer-events-none transform -translate-y-2">
-    <div id="speech-avatar" class="text-3xl select-none">🌾</div>
-    <div class="flex-1">
-      <div id="speech-name" class="text-xs font-black text-amber-300">Farmer Finn (Village Farmer)</div>
-      <div id="speech-text" class="text-xs text-neutral-200 mt-0.5 leading-snug">Hrrrm! Welcome to Oakvale Village, traveler! Enjoy our golden harvest!</div>
-    </div>
-  </div>
-
-  <!-- Left Thumb D-Pad (Minecraft Bedrock Layout) -->
-  <div id="touch-movement" class="absolute bottom-5 left-3 sm:left-6 z-20 grid grid-cols-3 gap-1.5 w-36 h-36 select-none opacity-90 hover:opacity-100">
-    <div></div>
-    <button id="dpad-up" class="touch-btn dpad-btn flex items-center justify-center rounded-xl text-lg font-black text-neutral-100">▲</button>
-    <div></div>
-    <button id="dpad-left" class="touch-btn dpad-btn flex items-center justify-center rounded-xl text-lg font-black text-neutral-100">◀</button>
-    <button id="dpad-center" class="touch-btn dpad-btn flex items-center justify-center rounded-xl text-xs font-black text-neutral-300">●</button>
-    <button id="dpad-right" class="touch-btn dpad-btn flex items-center justify-center rounded-xl text-lg font-black text-neutral-100">▶</button>
-    <div></div>
-    <button id="dpad-down" class="touch-btn dpad-btn flex items-center justify-center rounded-xl text-lg font-black text-neutral-100">▼</button>
-    <div></div>
-  </div>
-
-  <!-- Right Thumb Action Arc (Destroy, Place, Jump, Sprint) -->
-  <div id="touch-actions" class="absolute bottom-5 right-3 sm:right-6 z-20 flex flex-col gap-2 items-end select-none">
-    <div class="flex gap-2">
-      <button id="btn-touch-break" class="touch-btn px-4 sm:px-5 py-3 sm:py-3.5 bg-red-600/90 hover:bg-red-500 text-white font-black text-xs sm:text-sm rounded-2xl border-2 border-red-400 shadow-2xl backdrop-blur-md flex items-center gap-1.5">
-        ⛏️ <span>MINE</span>
-      </button>
-      <button id="btn-touch-place" class="touch-btn px-4 sm:px-5 py-3 sm:py-3.5 bg-emerald-600/90 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm rounded-2xl border-2 border-emerald-400 shadow-2xl backdrop-blur-md flex items-center gap-1.5">
-        🧱 <span>BUILD</span>
-      </button>
-    </div>
-    <div class="flex gap-2">
-      <button id="btn-touch-sprint" class="touch-btn px-3 py-2 bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 font-bold text-xs rounded-xl border border-neutral-600 shadow-xl backdrop-blur-sm">
-        🏃 Sprint
-      </button>
-      <button id="btn-touch-jump" class="touch-btn px-7 sm:px-8 py-2.5 sm:py-3 bg-amber-500 hover:bg-amber-400 active:bg-amber-300 text-black font-black text-xs sm:text-sm rounded-2xl border-2 border-amber-300 shadow-2xl">
-        ⬆ JUMP
+    <!-- Pause / Menu Button -->
+    <div class="flex items-center space-x-2 pointer-events-auto">
+      <button id="btn-pause" class="bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/20 text-sm font-semibold transition active:scale-95">
+        ⏸ Menu
       </button>
     </div>
   </div>
 
-  <!-- Bottom Centered Hotbar (Slots 1-9) -->
-  <div class="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-neutral-950/90 p-1 sm:p-1.5 rounded-2xl border-2 border-neutral-700 shadow-2xl backdrop-blur-md max-w-[94vw] sm:max-w-none">
-    <button id="btn-hotbar-prev" class="touch-btn px-2 py-1 text-neutral-400 hover:text-white font-bold text-base bg-neutral-800/80 rounded-lg border border-neutral-700">&lt;</button>
-    <div id="hotbar" class="flex gap-1 sm:gap-1.5"></div>
-    <button id="btn-hotbar-next" class="touch-btn px-2 py-1 text-neutral-400 hover:text-white font-bold text-base bg-neutral-800/80 rounded-lg border border-neutral-700">&gt;</button>
+  <!-- Bottom Hotbar -->
+  <div class="hud-element bottom-4 left-1/2 transform -translate-x-1/2 z-20 pointer-events-auto">
+    <div id="hotbar" class="flex space-x-2 bg-black/70 backdrop-blur-md p-2 rounded-2xl border border-white/20">
+      <!-- Generated via JS -->
+    </div>
   </div>
 
-  <!-- Horizontal Crafting & Backpack Modal -->
-  <div id="inventory-modal" class="hidden absolute inset-0 z-30 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-    <div class="bg-neutral-900 border-2 border-neutral-700 rounded-2xl p-3 sm:p-5 w-full max-w-3xl shadow-2xl text-neutral-100 my-auto flex flex-col">
-      <div class="flex justify-between items-center mb-2.5 border-b border-neutral-700 pb-2">
-        <div class="flex items-center gap-2">
-          <span class="text-xl">🎒</span>
-          <h2 class="text-sm sm:text-base font-bold text-amber-400">Crafting & Backpack</h2>
-        </div>
-        <button id="btn-close-inv" class="touch-btn px-3 py-1 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-bold shadow">✕ Close (E)</button>
+  <!-- Mobile Controls (D-Pad & Actions) -->
+  <div id="mobile-controls" class="hud-element inset-0 pointer-events-none z-20 md:hidden">
+    <!-- Action Buttons -->
+    <div class="absolute bottom-24 right-6 flex flex-col space-y-3 pointer-events-auto">
+      <button id="btn-jump" class="w-14 h-14 bg-white/20 active:bg-white/40 backdrop-blur-md rounded-full text-white font-bold border border-white/30 text-lg shadow-lg">⬆</button>
+      <button id="btn-inventory-toggle" class="w-14 h-14 bg-amber-500/80 active:bg-amber-600 rounded-full text-white font-bold border border-white/40 text-lg shadow-lg">🎒</button>
+    </div>
+  </div>
+
+  <!-- Inventory & Crafting Modal with Monetization Reward Section -->
+  <div id="inventory-modal" class="fixed inset-0 bg-black/80 backdrop-blur-lg z-40 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 border-2 border-amber-600/60 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 text-white shadow-2xl">
+      <div class="flex justify-between items-center border-b border-gray-700 pb-3 mb-4">
+        <h2 class="text-xl font-bold flex items-center gap-2">
+          <span>🎒</span> Backpack & Crafting Forge
+        </h2>
+        <button id="btn-close-inventory" class="text-gray-400 hover:text-white text-2xl font-bold px-2">&times;</button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 overflow-y-auto pr-1">
-        <!-- Left: 2x2 Crafting Grid -->
-        <div class="md:col-span-5 flex flex-col gap-2.5">
-          <div class="bg-neutral-950/70 p-3 rounded-xl border border-neutral-700 flex flex-col items-center">
-            <div class="text-[11px] text-neutral-400 mb-2 font-bold w-full text-left">Crafting Grid (2x2) - Tap slot to remove</div>
-            <div class="flex items-center gap-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div id="craft-slot-0" class="w-12 h-12 bg-neutral-800 border-2 border-neutral-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-400 pixel-border text-center"></div>
-                <div id="craft-slot-1" class="w-12 h-12 bg-neutral-800 border-2 border-neutral-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-400 pixel-border text-center"></div>
-                <div id="craft-slot-2" class="w-12 h-12 bg-neutral-800 border-2 border-neutral-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-400 pixel-border text-center"></div>
-                <div id="craft-slot-3" class="w-12 h-12 bg-neutral-800 border-2 border-neutral-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-400 pixel-border text-center"></div>
-              </div>
-              <div class="text-xl font-black text-neutral-500">➔</div>
-              <div>
-                <div id="craft-output-slot" class="w-14 h-14 bg-neutral-800 border-2 border-amber-400 rounded-xl flex items-center justify-center cursor-pointer hover:bg-neutral-700 shadow-xl pixel-border">
-                  <span class="text-xs text-neutral-500">Empty</span>
-                </div>
-              </div>
-            </div>
-            <button id="btn-clear-craft" class="touch-btn mt-2.5 px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-[10px] text-neutral-300 rounded-lg border border-neutral-600">Clear Grid</button>
-          </div>
-
-          <!-- 1-Click Quick Recipes -->
-          <div class="bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-700">
-            <div class="text-[10px] text-neutral-400 mb-1.5 font-bold">Quick 1-Click Recipes:</div>
-            <div class="grid grid-cols-2 gap-1.5">
-              <button id="quick-planks-btn" class="touch-btn px-2 py-1.5 bg-amber-700/80 hover:bg-amber-600 rounded-lg text-[10px] font-bold border border-amber-500/50">+4 Planks</button>
-              <button id="quick-sticks-btn" class="touch-btn px-2 py-1.5 bg-amber-800/80 hover:bg-amber-700 rounded-lg text-[10px] font-bold border border-amber-600/50">+4 Sticks</button>
-              <button id="quick-pick-btn" class="touch-btn px-2 py-1.5 bg-neutral-700 hover:bg-neutral-600 rounded-lg text-[10px] font-bold border border-neutral-500">+1 Pickaxe</button>
-              <button id="quick-torch-btn" class="touch-btn px-2 py-1.5 bg-yellow-600/80 hover:bg-yellow-500 rounded-lg text-[10px] font-bold border border-yellow-400/50">+4 Torches</button>
-            </div>
+      <!-- REWARDED AD PROMOTION BANNER -->
+      <div class="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-900/60 via-amber-800/40 to-yellow-900/60 border border-yellow-500/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center space-x-3">
+          <div class="text-3xl">💎</div>
+          <div>
+            <div class="font-bold text-yellow-300 text-sm sm:text-base">Special Village Supply Drop</div>
+            <div class="text-xs text-gray-300">Watch a short video ad to claim 50 Rare Blocks & Diamond Pickaxe!</div>
           </div>
         </div>
+        <button id="btn-rewarded-ad" class="w-full sm:w-auto px-4 py-2.5 bg-yellow-500 hover:bg-yellow-400 active:bg-yellow-600 text-gray-950 font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm whitespace-nowrap">
+          <span>📺</span> Watch Ad (+50)
+        </button>
+      </div>
 
-        <!-- Right: Hotbar & Storage -->
-        <div class="md:col-span-7 flex flex-col gap-2.5">
-          <div class="bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-700">
-            <div class="text-[10px] text-neutral-400 mb-1 font-bold">Hotbar (Tap item to add to crafting grid):</div>
-            <div id="inv-hotbar-grid" class="grid grid-cols-9 gap-1"></div>
-          </div>
-          <div class="bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-700 flex-1">
-            <div class="text-[10px] text-neutral-400 mb-1 font-bold">Backpack Storage (Tap item to add to grid):</div>
-            <div id="backpack-grid" class="grid grid-cols-9 gap-1 max-h-36 overflow-y-auto"></div>
-          </div>
+      <!-- Quick Recipes -->
+      <div class="mb-6">
+        <h3 class="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-2">Village Blueprints</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <button class="recipe-btn p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-left" data-item="plank" data-cost="wood:1" data-yield="4">
+            <span class="font-bold text-amber-200">Wood Planks</span><br><span class="text-gray-400">1 Wood = 4 Planks</span>
+          </button>
+          <button class="recipe-btn p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-left" data-item="stick" data-cost="plank:2" data-yield="4">
+            <span class="font-bold text-amber-200">Sticks</span><br><span class="text-gray-400">2 Planks = 4 Sticks</span>
+          </button>
+          <button class="recipe-btn p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-left" data-item="torch" data-cost="coal:1,stick:1" data-yield="4">
+            <span class="font-bold text-amber-200">Torches</span><br><span class="text-gray-400">1 Coal + 1 Stick</span>
+          </button>
+          <button class="recipe-btn p-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-left" data-item="brick" data-cost="stone:2" data-yield="2">
+            <span class="font-bold text-amber-200">Stone Bricks</span><br><span class="text-gray-400">2 Stone = 2 Bricks</span>
+          </button>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Welcome / Start Screen -->
-  <div id="start-screen" class="absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center text-center p-3 sm:p-4">
-    <div class="max-w-md w-full bg-neutral-900 border-2 border-amber-500/80 rounded-2xl p-5 sm:p-7 shadow-2xl space-y-4 my-auto">
-      <div class="text-3xl font-black tracking-wider text-amber-400 flex items-center justify-center gap-2">
-        <span>🌾</span> OAKVALE VILLAGE 3D
-      </div>
-      <p class="text-xs text-neutral-300 leading-relaxed">
-        Explore a living Minecraft-style village with cozy cottages, blacksmith forge, town well, watchtower, wheat fields, and friendly villagers!
-      </p>
-
-      <div class="grid grid-cols-2 gap-2 text-left text-[11px] bg-black/60 p-3 rounded-xl border border-neutral-800 text-neutral-300">
-        <div><span class="text-amber-400 font-bold">Move:</span> W, A, S, D / D-Pad</div>
-        <div><span class="text-amber-400 font-bold">Look:</span> Mouse / Drag screen</div>
-        <div><span class="text-amber-400 font-bold">Jump:</span> Space / JUMP</div>
-        <div><span class="text-amber-400 font-bold">Mine:</span> Left Click / MINE</div>
-        <div><span class="text-amber-400 font-bold">Build:</span> Right Click / BUILD</div>
-        <div><span class="text-amber-400 font-bold">Talk:</span> Talk Button / Near NPC</div>
-      </div>
-
-      <button id="btn-play" class="touch-btn w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-400 text-white font-black rounded-xl shadow-2xl text-base tracking-wider transition-all transform active:scale-95 cursor-pointer border-2 border-emerald-400">
-        ▶ ENTER VILLAGE / PLAY
-      </button>
-
-      <div class="text-[11px] text-neutral-400">
-        Debugged: Smooth auto-step climbing, fixed ground physics, and zero drag-mining!
+      <!-- Storage Grid -->
+      <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-2">Backpack Storage</h3>
+      <div id="backpack-grid" class="grid grid-cols-6 gap-2 bg-gray-950 p-4 rounded-xl border border-gray-800">
+        <!-- Rendered via JS -->
       </div>
     </div>
   </div>
 
+  <!-- Start & Pause Menu Overlay -->
+  <div id="menu-overlay" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 border-2 border-amber-600 rounded-2xl max-w-md w-full p-8 text-center text-white shadow-2xl">
+      <h1 class="text-3xl font-extrabold text-amber-400 tracking-wide mb-2">Oakvale Village 3D</h1>
+      <p class="text-gray-300 text-sm mb-6">Craft, explore, and build your peaceful medieval village.</p>
+
+      <div class="space-y-3 mb-6">
+        <button id="btn-play" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-gray-950 font-bold rounded-xl shadow-lg transition transform active:scale-95 text-lg">
+          ▶ Enter Village
+        </button>
+        <button id="btn-respawn" class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl border border-gray-700 transition active:scale-95 text-sm">
+          🔄 Respawn at Town Well
+        </button>
+      </div>
+
+      <!-- Controls Guide -->
+      <div class="text-xs text-gray-400 border-t border-gray-800 pt-4 text-left space-y-1">
+        <div><strong>W, A, S, D</strong>: Move</div>
+        <div><strong>Mouse Drag / Look</strong>: Rotate camera</div>
+        <div><strong>Left Click</strong>: Mine block | <strong>Right Click</strong>: Build block</div>
+        <div><strong>E / 🎒</strong>: Open Inventory & Claim Free Rewards</div>
+        <div><strong>ESC / Menu</strong>: Pause game</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- GAME ENGINE & MONETIZATION SCRIPT                                -->
+  <!-- ================================================================= -->
   <script>
-    // ========================================================================
-    // 1. PROCEDURAL SOUND SYNTHESIZER (WEB AUDIO API)
-    // ========================================================================
-    class SoundEngine {
-      constructor() {
-        this.ctx = null;
+    /* ===============================================================
+       ADMONETIZATION MANAGER (Google H5 Games Ads / AdMob Placement API)
+       =============================================================== */
+    const AdManager = {
+      isReady: false,
+      isAdActive: false,
+      lastInterstitialTime: 0,
+      minInterstitialCooldownMs: 45000, // 45s cooldown between automatic interstitials
+
+      // Safe pause before ad opens
+      pauseGameForAd() {
+        this.isAdActive = true;
+        // Pause 3D render loop
+        if (GameState.animationFrameId) {
+          cancelAnimationFrame(GameState.animationFrameId);
+          GameState.animationFrameId = null;
+        }
+        // Suspend Web Audio Context
+        if (SoundEngine.ctx && SoundEngine.ctx.state === 'running') {
+          SoundEngine.ctx.suspend().catch(() => {});
+        }
+        // Unlock mouse pointer
+        if (document.exitPointerLock) {
+          document.exitPointerLock();
+        }
+      },
+
+      // Safe resume after ad completes or dismisses
+      resumeGameAfterAd() {
+        this.isAdActive = false;
+        // Resume Web Audio Context
+        if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') {
+          SoundEngine.ctx.resume().catch(() => {});
+        }
+        // Resume 3D render loop
+        if (!GameState.animationFrameId && GameState.isGameRunning) {
+          GameState.lastTime = performance.now();
+          GameState.animationFrameId = requestAnimationFrame(gameLoop);
+        }
+      },
+
+      /**
+       * Show an Interstitial Ad (Pause, Respawn, or Menu exit)
+       * @param {string} placementName - e.g., 'pause_menu', 'player_respawn'
+       * @param {Function} onFinished - callback executed after ad finishes or fails
+       */
+      showInterstitial(placementName, onFinished) {
+        const now = Date.now();
+        // Client-side rate-limiting check
+        if (now - this.lastInterstitialTime < this.minInterstitialCooldownMs) {
+          if (onFinished) onFinished();
+          return;
+        }
+
+        if (typeof window.adBreak !== 'function') {
+          console.warn('[AdMob] adBreak is unavailable (ad blocker or offline). Continuing game.');
+          if (onFinished) onFinished();
+          return;
+        }
+
+        console.log(`[AdMob] Requesting interstitial ad: ${placementName}`);
+        this.lastInterstitialTime = now;
+
+        window.adBreak({
+          type: 'pause',
+          name: placementName,
+          beforeAd: () => {
+            AdManager.pauseGameForAd();
+          },
+          afterAd: () => {
+            // Optional telemetry hook
+          },
+          adBreakDone: (placementInfo) => {
+            console.log('[AdMob] Interstitial break completed:', placementInfo);
+            AdManager.resumeGameAfterAd();
+            if (onFinished) onFinished();
+          }
+        });
+      },
+
+      /**
+       * Show a Rewarded Video Ad
+       * @param {string} rewardName - Identifier for the reward
+       * @param {Function} onRewardGranted - Called only if the player completed the ad
+       */
+      showRewarded(rewardName, onRewardGranted) {
+        if (typeof window.adBreak !== 'function') {
+          showToast('⚠️ Ad service not ready or blocked. Please try again later.');
+          return;
+        }
+
+        let rewardClaimed = false;
+        showToast('📺 Loading video reward...');
+
+        window.adBreak({
+          type: 'reward',
+          name: rewardName,
+          beforeAd: () => {
+            AdManager.pauseGameForAd();
+          },
+          afterAd: () => {},
+          beforeReward: (showAdFn) => {
+            // Show ad directly upon player's explicit button click
+            if (typeof showAdFn === 'function') {
+              showAdFn();
+            }
+          },
+          adViewed: () => {
+            // Player watched the full ad
+            rewardClaimed = true;
+            console.log('[AdMob] Rewarded ad watched successfully.');
+            if (onRewardGranted) onRewardGranted();
+          },
+          adDismissed: () => {
+            // Player closed before reward milestone
+            console.log('[AdMob] Rewarded ad dismissed before completion.');
+            showToast('❌ Ad closed early. Complete the video to claim items.');
+          },
+          adBreakDone: (placementInfo) => {
+            AdManager.resumeGameAfterAd();
+            console.log('[AdMob] Rewarded break closed:', placementInfo);
+          }
+        });
       }
+    };
+
+    /* ===============================================================
+       UI NOTIFICATIONS (TOAST HELPER)
+       =============================================================== */
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast-anim bg-gray-900/90 text-white px-5 py-2.5 rounded-xl border border-amber-500/50 shadow-xl text-sm font-semibold flex items-center space-x-2';
+      toast.innerText = message;
+      container.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 3200);
+    }
+
+    /* ===============================================================
+       WEB AUDIO PROCEDURAL SOUND ENGINE
+       =============================================================== */
+    const SoundEngine = {
+      ctx: null,
       init() {
-        try {
-          if (!this.ctx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (AudioContextClass) this.ctx = new AudioContextClass();
-          }
-          if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
-          }
-        } catch (e) {}
-      }
-      playBreak() {
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(160, now);
-          osc.frequency.exponentialRampToValueAtTime(40, now + 0.09);
-          gain.gain.setValueAtTime(0.25, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.09);
-        } catch (e) {}
-      }
-      playPlace() {
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(260, now);
-          osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
-          gain.gain.setValueAtTime(0.25, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.08);
-        } catch (e) {}
-      }
-      playCraft() {
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(440, now);
-          osc.frequency.setValueAtTime(660, now + 0.07);
-          osc.frequency.setValueAtTime(880, now + 0.14);
-          gain.gain.setValueAtTime(0.12, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.22);
-        } catch (e) {}
-      }
-      playVillager() {
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(145, now);
-          osc.frequency.exponentialRampToValueAtTime(102, now + 0.28);
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.32);
-          const filter = this.ctx.createBiquadFilter();
-          filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(540, now);
-          osc.connect(filter);
-          filter.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.32);
-        } catch (e) {}
-      }
-    }
-    const audio = new SoundEngine();
-
-    // ========================================================================
-    // 2. PROCEDURAL 16-BIT TEXTURE ATLAS
-    // ========================================================================
-    const TILE_SIZE = 16;
-    const TILES_X = 8;
-    const atlasCanvas = document.createElement('canvas');
-    atlasCanvas.width = TILES_X * TILE_SIZE;
-    atlasCanvas.height = TILES_X * TILE_SIZE;
-    const actx = atlasCanvas.getContext('2d');
-
-    function drawNoiseTile(tx, ty, baseColor, noiseColor, density = 0.35) {
-      const startX = tx * TILE_SIZE;
-      const startY = ty * TILE_SIZE;
-      actx.fillStyle = baseColor;
-      actx.fillRect(startX, startY, TILE_SIZE, TILE_SIZE);
-      actx.fillStyle = noiseColor;
-      for (let y = 0; y < TILE_SIZE; y++) {
-        for (let x = 0; x < TILE_SIZE; x++) {
-          if (Math.random() < density) {
-            actx.fillRect(startX + x, startY + y, 1, 1);
-          }
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) this.ctx = new AudioContextClass();
         }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      },
+      playChime() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      },
+      playClick() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, now);
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
       }
-    }
-
-    // Tile 1: Stone
-    drawNoiseTile(1, 0, '#737373', '#525252', 0.45);
-    // Tile 2: Dirt
-    drawNoiseTile(2, 0, '#85512e', '#5e381d', 0.4);
-    // Tile 3: Grass Top
-    drawNoiseTile(3, 0, '#559c2f', '#3b701e', 0.35);
-    // Tile 4: Grass Side
-    drawNoiseTile(4, 0, '#85512e', '#5e381d', 0.35);
-    actx.fillStyle = '#559c2f';
-    actx.fillRect(4 * TILE_SIZE, 0, TILE_SIZE, 4);
-    // Tile 5: Log Side
-    drawNoiseTile(5, 0, '#614126', '#3b2413', 0.25);
-    actx.fillStyle = '#422813';
-    for (let y = 0; y < TILE_SIZE; y += 3) {
-      actx.fillRect(5 * TILE_SIZE, y, TILE_SIZE, 1);
-    }
-    // Tile 6: Log Top
-    drawNoiseTile(6, 0, '#b89467', '#8a6538', 0.3);
-    actx.strokeStyle = '#5a3d1e';
-    actx.strokeRect(6 * TILE_SIZE + 3.5, 3.5, 9, 9);
-    // Tile 7: Leaves
-    drawNoiseTile(7, 0, '#2d7a22', '#1b4d14', 0.5);
-    // Tile 8: Glass
-    actx.fillStyle = 'rgba(215, 235, 245, 0.4)';
-    actx.fillRect(0, 1 * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    actx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-    actx.fillRect(2, 1 * TILE_SIZE + 2, 2, 2);
-    actx.fillRect(6, 1 * TILE_SIZE + 6, 4, 1);
-    // Tile 9: Water
-    drawNoiseTile(1, 1, '#2563eb', '#1d4ed8', 0.3);
-    // Tile 10: Glowstone
-    drawNoiseTile(2, 1, '#f59e0b', '#d97706', 0.45);
-    // Tile 11: Planks
-    drawNoiseTile(3, 1, '#b45309', '#78350f', 0.3);
-    actx.fillStyle = '#451a03';
-    actx.fillRect(3 * TILE_SIZE, 1 * TILE_SIZE + 4, TILE_SIZE, 1);
-    actx.fillRect(3 * TILE_SIZE, 1 * TILE_SIZE + 9, TILE_SIZE, 1);
-    actx.fillRect(3 * TILE_SIZE, 1 * TILE_SIZE + 14, TILE_SIZE, 1);
-
-    // Tile 12: Cobblestone
-    drawNoiseTile(4, 1, '#666666', '#444444', 0.5);
-    actx.fillStyle = '#2c2c2c';
-    actx.strokeRect(4 * TILE_SIZE + 1.5, 1 * TILE_SIZE + 1.5, 6, 5);
-    actx.strokeRect(4 * TILE_SIZE + 8.5, 1 * TILE_SIZE + 1.5, 6, 6);
-    actx.strokeRect(4 * TILE_SIZE + 2.5, 1 * TILE_SIZE + 8.5, 6, 6);
-    actx.strokeRect(4 * TILE_SIZE + 9.5, 1 * TILE_SIZE + 9.5, 5, 5);
-
-    // Tile 13: Red Bricks
-    drawNoiseTile(5, 1, '#993d31', '#752b22', 0.25);
-    actx.fillStyle = '#dcd8cf';
-    actx.fillRect(5 * TILE_SIZE, 1 * TILE_SIZE + 3, TILE_SIZE, 1);
-    actx.fillRect(5 * TILE_SIZE, 1 * TILE_SIZE + 7, TILE_SIZE, 1);
-    actx.fillRect(5 * TILE_SIZE, 1 * TILE_SIZE + 11, TILE_SIZE, 1);
-    actx.fillRect(5 * TILE_SIZE, 1 * TILE_SIZE + 15, TILE_SIZE, 1);
-    actx.fillRect(5 * TILE_SIZE + 7, 1 * TILE_SIZE, 1, 3);
-    actx.fillRect(5 * TILE_SIZE + 4, 1 * TILE_SIZE + 4, 1, 3);
-    actx.fillRect(5 * TILE_SIZE + 12, 1 * TILE_SIZE + 4, 1, 3);
-
-    // Tile 14: Village Path / Gravel
-    drawNoiseTile(6, 1, '#9a7949', '#7a5a2e', 0.4);
-    actx.fillStyle = '#bfa172';
-    actx.fillRect(6 * TILE_SIZE + 3, 1 * TILE_SIZE + 4, 2, 2);
-    actx.fillRect(6 * TILE_SIZE + 10, 1 * TILE_SIZE + 9, 2, 2);
-
-    // Tile 15: Farmland & Golden Wheat
-    drawNoiseTile(7, 1, '#422813', '#2b190a', 0.3);
-    actx.fillStyle = '#55a025';
-    for (let x = 1; x < 15; x += 3) actx.fillRect(7 * TILE_SIZE + x, 1 * TILE_SIZE + 4, 2, 6);
-    actx.fillStyle = '#eab308';
-    for (let x = 1; x < 15; x += 3) actx.fillRect(7 * TILE_SIZE + x, 1 * TILE_SIZE + 1, 2, 3);
-
-    // Tile 16: Bookshelf
-    drawNoiseTile(0, 2, '#b45309', '#78350f', 0.3);
-    actx.fillStyle = '#312e81'; actx.fillRect(2, 2 * TILE_SIZE + 2, 2, 5);
-    actx.fillStyle = '#991b1b'; actx.fillRect(5, 2 * TILE_SIZE + 2, 3, 5);
-    actx.fillStyle = '#166534'; actx.fillRect(9, 2 * TILE_SIZE + 2, 2, 5);
-    actx.fillStyle = '#854d0e'; actx.fillRect(12, 2 * TILE_SIZE + 2, 2, 5);
-    actx.fillStyle = '#451a03'; actx.fillRect(0, 2 * TILE_SIZE + 8, TILE_SIZE, 2);
-
-    // Tile 17: Hay Bale
-    drawNoiseTile(1, 2, '#ca8a04', '#a16207', 0.35);
-    actx.fillStyle = '#b91c1c';
-    actx.fillRect(1 * TILE_SIZE, 2 * TILE_SIZE + 4, TILE_SIZE, 1);
-    actx.fillRect(1 * TILE_SIZE, 2 * TILE_SIZE + 11, TILE_SIZE, 1);
-
-    // Tile 18: Rose Bush
-    actx.fillStyle = '#1b4d14';
-    actx.fillRect(2 * TILE_SIZE, 2 * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    actx.fillStyle = '#dc2626';
-    actx.fillRect(2 * TILE_SIZE + 4, 2 * TILE_SIZE + 3, 8, 8);
-    actx.fillStyle = '#facc15';
-    actx.fillRect(2 * TILE_SIZE + 7, 2 * TILE_SIZE + 6, 2, 2);
-
-    const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
-    atlasTexture.magFilter = THREE.NearestFilter;
-    atlasTexture.minFilter = THREE.NearestFilter;
-    atlasTexture.generateMipmaps = false;
-
-    // ========================================================================
-    // 3. BLOCK REGISTRY & DEFINITIONS
-    // ========================================================================
-    const BLOCKS = {
-      AIR: 0,
-      STONE: 1,
-      DIRT: 2,
-      GRASS: 3,
-      LOG: 4,
-      LEAVES: 5,
-      GLASS: 6,
-      WATER: 7,
-      GLOWSTONE: 8,
-      PLANKS: 9,
-      COBBLESTONE: 10,
-      BRICKS: 11,
-      PATH: 12,
-      FARMLAND: 13,
-      BOOKSHELF: 14,
-      HAY: 15,
-      FLOWER: 16,
-      STICK: 100,
-      WOOD_PICKAXE: 101,
-      TORCH: 102
     };
 
-    const BLOCK_DEFS = {
-      [BLOCKS.AIR]: { name: 'Air', isBlock: false, solid: false, transparent: true },
-      [BLOCKS.STONE]: { name: 'Stone', isBlock: true, solid: true, transparent: false, tiles: { top: 1, bottom: 1, side: 1 } },
-      [BLOCKS.DIRT]: { name: 'Dirt', isBlock: true, solid: true, transparent: false, tiles: { top: 2, bottom: 2, side: 2 } },
-      [BLOCKS.GRASS]: { name: 'Grass', isBlock: true, solid: true, transparent: false, tiles: { top: 3, bottom: 2, side: 4 } },
-      [BLOCKS.LOG]: { name: 'Oak Log', isBlock: true, solid: true, transparent: false, tiles: { top: 6, bottom: 6, side: 5 } },
-      [BLOCKS.LEAVES]: { name: 'Oak Leaves', isBlock: true, solid: true, transparent: true, tiles: { top: 7, bottom: 7, side: 7 } },
-      [BLOCKS.GLASS]: { name: 'Glass', isBlock: true, solid: true, transparent: true, tiles: { top: 8, bottom: 8, side: 8 } },
-      [BLOCKS.WATER]: { name: 'Water', isBlock: true, solid: false, transparent: true, tiles: { top: 9, bottom: 9, side: 9 } },
-      [BLOCKS.GLOWSTONE]: { name: 'Glowstone', isBlock: true, solid: true, transparent: false, tiles: { top: 10, bottom: 10, side: 10 } },
-      [BLOCKS.PLANKS]: { name: 'Oak Planks', isBlock: true, solid: true, transparent: false, tiles: { top: 11, bottom: 11, side: 11 } },
-      [BLOCKS.COBBLESTONE]: { name: 'Cobblestone', isBlock: true, solid: true, transparent: false, tiles: { top: 12, bottom: 12, side: 12 } },
-      [BLOCKS.BRICKS]: { name: 'Bricks', isBlock: true, solid: true, transparent: false, tiles: { top: 13, bottom: 13, side: 13 } },
-      [BLOCKS.PATH]: { name: 'Village Path', isBlock: true, solid: true, transparent: false, tiles: { top: 14, bottom: 2, side: 4 } },
-      [BLOCKS.FARMLAND]: { name: 'Wheat Crop', isBlock: true, solid: true, transparent: false, tiles: { top: 15, bottom: 2, side: 2 } },
-      [BLOCKS.BOOKSHELF]: { name: 'Bookshelf', isBlock: true, solid: true, transparent: false, tiles: { top: 11, bottom: 11, side: 16 } },
-      [BLOCKS.HAY]: { name: 'Hay Bale', isBlock: true, solid: true, transparent: false, tiles: { top: 17, bottom: 17, side: 17 } },
-      [BLOCKS.FLOWER]: { name: 'Rose', isBlock: true, solid: false, transparent: true, tiles: { top: 18, bottom: 18, side: 18 } },
-      [BLOCKS.STICK]: { name: 'Stick', isBlock: false, solid: false },
-      [BLOCKS.WOOD_PICKAXE]: { name: 'Pickaxe', isBlock: false, solid: false },
-      [BLOCKS.TORCH]: { name: 'Torch', isBlock: true, solid: false, transparent: true, tiles: { top: 10, bottom: 10, side: 10 } }
+    /* ===============================================================
+       GAME STATE & INVENTORY SYSTEM
+       =============================================================== */
+    const GameState = {
+      isGameRunning: false,
+      isPaused: true,
+      animationFrameId: null,
+      lastTime: performance.now(),
+
+      // Player Backpack & Hotbar
+      inventory: {
+        wood: 12,
+        stone: 24,
+        dirt: 64,
+        plank: 8,
+        stick: 16,
+        torch: 4,
+        brick: 10,
+        diamond_block: 0,
+        obsidian: 0
+      },
+
+      hotbarItems: ['dirt', 'wood', 'stone', 'plank', 'brick', 'torch'],
+      activeHotbarSlot: 0
     };
 
-    // ========================================================================
-    // 4. NOISE GENERATION & WORLD STORAGE
-    // ========================================================================
-    class SimpleNoise {
-      constructor(seed = 1337) {
-        this.p = new Uint8Array(512);
-        for (let i = 0; i < 256; i++) this.p[i] = i;
-        let s = seed ^ 0x6a09e667;
-        for (let i = 255; i > 0; i--) {
-          s = (Math.imul(s ^ (s >>> 16), 0x85ebca6b)) >>> 0;
-          const r = (s % (i + 1));
-          const t = this.p[i]; this.p[i] = this.p[r]; this.p[r] = t;
-        }
-        for (let i = 0; i < 256; i++) this.p[256 + i] = this.p[i];
-      }
-      noise2D(x, y) {
-        const X = Math.floor(x) & 255;
-        const Y = Math.floor(y) & 255;
-        const xf = x - Math.floor(x);
-        const yf = y - Math.floor(y);
-        const u = xf * xf * (3 - 2 * xf);
-        const v = yf * yf * (3 - 2 * yf);
-        const a = this.p[X] + Y;
-        const b = this.p[X + 1] + Y;
-        const grad = (hash, gx, gy) => {
-          const h = hash & 3;
-          return ((h === 0 || h === 1) ? gx : -gx) + ((h === 0 || h === 2) ? gy : -gy);
+    function renderHotbar() {
+      const container = document.getElementById('hotbar');
+      container.innerHTML = '';
+      GameState.hotbarItems.forEach((itemId, idx) => {
+        const slot = document.createElement('button');
+        const isActive = idx === GameState.activeHotbarSlot;
+        const count = GameState.inventory[itemId] || 0;
+        slot.className = `w-12 h-12 rounded-xl flex flex-col items-center justify-center relative font-mono text-xs transition border ${
+          isActive ? 'bg-amber-600/60 border-yellow-300 ring-2 ring-yellow-400' : 'bg-gray-800/80 border-gray-700 hover:bg-gray-700'
+        }`;
+        slot.innerHTML = `
+          <span class="text-base">${getItemEmoji(itemId)}</span>
+          <span class="absolute bottom-0.5 right-1 text-[10px] font-bold text-gray-200">${count}</span>
+        `;
+        slot.onclick = () => {
+          GameState.activeHotbarSlot = idx;
+          SoundEngine.playClick();
+          renderHotbar();
         };
-        const x1 = grad(this.p[a], xf, yf);
-        const x2 = grad(this.p[b], xf - 1, yf);
-        const y1 = x1 + u * (x2 - x1);
-        const x3 = grad(this.p[a + 1], xf, yf - 1);
-        const x4 = grad(this.p[b + 1], xf - 1, yf - 1);
-        const y2 = x3 + u * (x4 - x3);
-        return y1 + v * (y2 - y1);
-      }
-    }
-    const terrainNoise = new SimpleNoise(4242);
-
-    const CHUNK_SIZE_X = 16;
-    const CHUNK_SIZE_Z = 16;
-    const CHUNK_SIZE_Y = 64;
-
-    class Chunk {
-      constructor(cx, cz) {
-        this.cx = cx;
-        this.cz = cz;
-        this.key = `${cx},${cz}`;
-        this.voxels = new Uint8Array(CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z);
-        this.isDirty = true;
-        this.mesh = null;
-      }
-      getBlock(x, y, z) {
-        if (x < 0 || x >= 16 || y < 0 || y >= CHUNK_SIZE_Y || z < 0 || z >= 16) return BLOCKS.AIR;
-        return this.voxels[(y << 8) | (z << 4) | x];
-      }
-      setBlock(x, y, z, id) {
-        if (x < 0 || x >= 16 || y < 0 || y >= CHUNK_SIZE_Y || z < 0 || z >= 16) return;
-        this.voxels[(y << 8) | (z << 4) | x] = id;
-        this.isDirty = true;
-      }
-    }
-
-    class WorldManager {
-      constructor() {
-        this.chunks = new Map();
-      }
-      getChunk(cx, cz) {
-        return this.chunks.get(`${cx},${cz}`);
-      }
-      getBlock(wx, wy, wz) {
-        if (wy < 0 || wy >= CHUNK_SIZE_Y) return BLOCKS.AIR;
-        const cx = Math.floor(wx) >> 4;
-        const cz = Math.floor(wz) >> 4;
-        const chunk = this.getChunk(cx, cz);
-        if (!chunk) return BLOCKS.AIR;
-        const lx = wx & 15;
-        const lz = wz & 15;
-        return chunk.getBlock(lx, wy, lz);
-      }
-      setBlock(wx, wy, wz, id) {
-        if (wy < 0 || wy >= CHUNK_SIZE_Y) return;
-        const cx = Math.floor(wx) >> 4;
-        const cz = Math.floor(wz) >> 4;
-        const chunk = this.getChunk(cx, cz);
-        if (chunk) {
-          const lx = wx & 15;
-          const lz = wz & 15;
-          chunk.setBlock(lx, wy, lz, id);
-          if (lx === 0) this.dirtyNeighbor(cx - 1, cz);
-          if (lx === 15) this.dirtyNeighbor(cx + 1, cz);
-          if (lz === 0) this.dirtyNeighbor(cx, cz - 1);
-          if (lz === 15) this.dirtyNeighbor(cx, cz + 1);
-        }
-      }
-      dirtyNeighbor(cx, cz) {
-        const c = this.getChunk(cx, cz);
-        if (c) c.isDirty = true;
-      }
-    }
-    const world = new WorldManager();
-
-    // ========================================================================
-    // 5. PROCEDURAL TERRAIN WITH VILLAGE VALLEY LEVELING
-    // ========================================================================
-    const VILLAGE_BASE_Y = 32;
-
-    function generateChunkTerrain(chunk) {
-      const ox = chunk.cx * 16;
-      const oz = chunk.cz * 16;
-      for (let z = 0; z < 16; z++) {
-        for (let x = 0; x < 16; x++) {
-          const wx = ox + x;
-          const wz = oz + z;
-
-          let naturalElevation = Math.floor(28 + terrainNoise.noise2D(wx * 0.03, wz * 0.03) * 14);
-
-          // Village clearing & leveling around center (26, 26)
-          const distToVillage = Math.sqrt((wx - 26) * (wx - 26) + (wz - 26) * (wz - 26));
-          let elevation = naturalElevation;
-          if (distToVillage < 24) {
-            const blend = Math.max(0, Math.min(1, (distToVillage - 14) / 10));
-            elevation = Math.round(VILLAGE_BASE_Y * (1 - blend) + naturalElevation * blend);
-          }
-
-          for (let y = 0; y < CHUNK_SIZE_Y; y++) {
-            if (y === 0) {
-              chunk.setBlock(x, y, z, BLOCKS.STONE);
-            } else if (y < elevation - 3) {
-              chunk.setBlock(x, y, z, BLOCKS.STONE);
-            } else if (y < elevation) {
-              chunk.setBlock(x, y, z, BLOCKS.DIRT);
-            } else if (y === elevation) {
-              chunk.setBlock(x, y, z, BLOCKS.GRASS);
-            } else if (y <= 24) {
-              chunk.setBlock(x, y, z, BLOCKS.WATER);
-            }
-          }
-
-          // Outside village: Procedural wild oak trees
-          if (distToVillage >= 24 && elevation > 25 && ((Math.sin(wx * 12.3 + wz * 43.1) * 10000) % 1 > 0.965)) {
-            const th = 4 + Math.floor(Math.random() * 2);
-            for (let ty = 1; ty <= th; ty++) {
-              if (elevation + ty < CHUNK_SIZE_Y) chunk.setBlock(x, elevation + ty, z, BLOCKS.LOG);
-            }
-            const crownY = elevation + th;
-            for (let dx = -2; dx <= 2; dx++) {
-              for (let dz = -2; dz <= 2; dz++) {
-                for (let dy = 0; dy <= 1; dy++) {
-                  const lx = x + dx;
-                  const lz = z + dz;
-                  const ly = crownY + dy;
-                  if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16 && ly < CHUNK_SIZE_Y) {
-                    if (Math.abs(dx) === 2 && Math.abs(dz) === 2 && Math.random() < 0.5) continue;
-                    if (chunk.getBlock(lx, ly, lz) === BLOCKS.AIR) {
-                      chunk.setBlock(lx, ly, lz, BLOCKS.LEAVES);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // ========================================================================
-    // 6. OAKVALE VILLAGE ARCHITECTURAL GENERATOR
-    // ========================================================================
-    function generateOakvaleVillage(w) {
-      const vy = VILLAGE_BASE_Y;
-
-      // 1. Paved Road & Pathways Network
-      for (let x = 12; x <= 40; x++) {
-        w.setBlock(x, vy, 26, (x % 3 === 0) ? BLOCKS.COBBLESTONE : BLOCKS.PATH);
-        w.setBlock(x, vy, 27, BLOCKS.PATH);
-      }
-      for (let z = 12; z <= 40; z++) {
-        w.setBlock(26, vy, z, (z % 3 === 0) ? BLOCKS.COBBLESTONE : BLOCKS.PATH);
-        w.setBlock(27, vy, z, BLOCKS.PATH);
-      }
-
-      function buildLampPost(lx, lz) {
-        w.setBlock(lx, vy + 1, lz, BLOCKS.COBBLESTONE);
-        w.setBlock(lx, vy + 2, lz, BLOCKS.LOG);
-        w.setBlock(lx, vy + 3, lz, BLOCKS.LOG);
-        w.setBlock(lx, vy + 4, lz, BLOCKS.GLOWSTONE);
-        w.setBlock(lx, vy + 5, lz, BLOCKS.PLANKS);
-      }
-      buildLampPost(20, 24);
-      buildLampPost(33, 24);
-      buildLampPost(24, 20);
-      buildLampPost(24, 33);
-      buildLampPost(33, 33);
-
-      // 2. Central Village Well at (26, 26)
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dz = -2; dz <= 2; dz++) {
-          const isBorder = (Math.abs(dx) === 2 || Math.abs(dz) === 2);
-          if (isBorder) {
-            w.setBlock(26 + dx, vy + 1, 26 + dz, BLOCKS.COBBLESTONE);
-          } else {
-            w.setBlock(26 + dx, vy, 26 + dz, BLOCKS.WATER);
-            w.setBlock(26 + dx, vy - 1, 26 + dz, BLOCKS.WATER);
-            w.setBlock(26 + dx, vy - 2, 26 + dz, BLOCKS.COBBLESTONE);
-          }
-        }
-      }
-      const wellCorners = [[-2, -2], [2, -2], [-2, 2], [2, 2]];
-      for (const [cx, cz] of wellCorners) {
-        w.setBlock(26 + cx, vy + 2, 26 + cz, BLOCKS.LOG);
-        w.setBlock(26 + cx, vy + 3, 26 + cz, BLOCKS.LOG);
-      }
-      for (let rx = -2; rx <= 2; rx++) {
-        for (let rz = -2; rz <= 2; rz++) {
-          w.setBlock(26 + rx, vy + 4, 26 + rz, BLOCKS.COBBLESTONE);
-        }
-      }
-      w.setBlock(26, vy + 3, 26, BLOCKS.GLOWSTONE);
-      w.setBlock(26, vy + 5, 26, BLOCKS.PLANKS);
-
-      // 3. Mayor's Cottage (House 1) at (14..20, 14..20)
-      for (let x = 14; x <= 20; x++) {
-        for (let z = 14; z <= 20; z++) {
-          w.setBlock(x, vy, z, BLOCKS.COBBLESTONE);
-          for (let y = 1; y <= 5; y++) w.setBlock(x, vy + y, z, BLOCKS.AIR);
-        }
-      }
-      for (let y = 1; y <= 4; y++) {
-        for (let x = 14; x <= 20; x++) {
-          for (let z = 14; z <= 20; z++) {
-            const isCorner = (x === 14 || x === 20) && (z === 14 || z === 20);
-            const isEdge = (x === 14 || x === 20 || z === 14 || z === 20);
-            if (isCorner) {
-              w.setBlock(x, vy + y, z, BLOCKS.LOG);
-            } else if (isEdge) {
-              if (y === 2 && (x === 17 || z === 17)) {
-                w.setBlock(x, vy + y, z, BLOCKS.GLASS);
-              } else {
-                w.setBlock(x, vy + y, z, BLOCKS.PLANKS);
-              }
-            }
-          }
-        }
-      }
-      w.setBlock(17, vy + 1, 20, BLOCKS.AIR);
-      w.setBlock(17, vy + 2, 20, BLOCKS.AIR);
-      w.setBlock(15, vy + 1, 15, BLOCKS.BOOKSHELF);
-      w.setBlock(15, vy + 2, 15, BLOCKS.BOOKSHELF);
-      w.setBlock(17, vy + 3, 17, BLOCKS.GLOWSTONE);
-      for (let x = 13; x <= 21; x++) {
-        w.setBlock(x, vy + 5, 14, BLOCKS.COBBLESTONE);
-        w.setBlock(x, vy + 5, 20, BLOCKS.COBBLESTONE);
-        for (let z = 15; z <= 19; z++) {
-          w.setBlock(x, vy + 5, z, BLOCKS.PLANKS);
-        }
-        w.setBlock(x, vy + 6, 17, BLOCKS.COBBLESTONE);
-      }
-
-      // 4. Blacksmith's Forge at (32..38, 14..20)
-      for (let x = 32; x <= 38; x++) {
-        for (let z = 14; z <= 20; z++) {
-          w.setBlock(x, vy, z, BLOCKS.COBBLESTONE);
-          for (let y = 1; y <= 5; y++) w.setBlock(x, vy + y, z, BLOCKS.AIR);
-        }
-      }
-      for (let y = 1; y <= 3; y++) {
-        for (let x = 32; x <= 38; x++) {
-          for (let z = 14; z <= 20; z++) {
-            const isCorner = (x === 32 || x === 38) && (z === 14 || z === 20);
-            const isBack = (z === 14);
-            const isSide = (x === 32 || x === 38);
-            if (isCorner) w.setBlock(x, vy + y, z, BLOCKS.COBBLESTONE);
-            else if (isBack || isSide) w.setBlock(x, vy + y, z, BLOCKS.BRICKS);
-          }
-        }
-      }
-      w.setBlock(36, vy + 1, 15, BLOCKS.COBBLESTONE);
-      w.setBlock(36, vy + 1, 16, BLOCKS.GLOWSTONE);
-      w.setBlock(36, vy + 2, 15, BLOCKS.COBBLESTONE);
-      w.setBlock(36, vy + 3, 15, BLOCKS.COBBLESTONE);
-      w.setBlock(36, vy + 4, 15, BLOCKS.COBBLESTONE);
-      for (let x = 32; x <= 38; x++) {
-        for (let z = 14; z <= 20; z++) {
-          w.setBlock(x, vy + 4, z, BLOCKS.COBBLESTONE);
-        }
-      }
-
-      // 5. Village Watchtower at (33..37, 33..37)
-      for (let x = 33; x <= 37; x++) {
-        for (let z = 33; z <= 37; z++) {
-          w.setBlock(x, vy, z, BLOCKS.COBBLESTONE);
-          for (let y = 1; y <= 13; y++) w.setBlock(x, vy + y, z, BLOCKS.AIR);
-        }
-      }
-      for (let y = 1; y <= 11; y++) {
-        for (let x = 33; x <= 37; x++) {
-          for (let z = 33; z <= 37; z++) {
-            const isCorner = (x === 33 || x === 37) && (z === 33 || z === 37);
-            const isEdge = (x === 33 || x === 37 || z === 33 || z === 37);
-            if (isCorner) {
-              w.setBlock(x, vy + y, z, BLOCKS.COBBLESTONE);
-            } else if (isEdge) {
-              if (y === 4 || y === 8) {
-                w.setBlock(x, vy + y, z, BLOCKS.GLASS);
-              } else {
-                w.setBlock(x, vy + y, z, BLOCKS.PLANKS);
-              }
-            }
-          }
-        }
-      }
-      w.setBlock(35, vy + 1, 33, BLOCKS.AIR);
-      w.setBlock(35, vy + 2, 33, BLOCKS.AIR);
-      for (let x = 32; x <= 38; x++) {
-        for (let z = 32; z <= 38; z++) {
-          w.setBlock(x, vy + 12, z, BLOCKS.COBBLESTONE);
-        }
-      }
-      w.setBlock(32, vy + 13, 32, BLOCKS.GLOWSTONE);
-      w.setBlock(38, vy + 13, 32, BLOCKS.GLOWSTONE);
-      w.setBlock(32, vy + 13, 38, BLOCKS.GLOWSTONE);
-      w.setBlock(38, vy + 13, 38, BLOCKS.GLOWSTONE);
-
-      // 6. Terraced Wheat Farm at (14..20, 31..37)
-      for (let x = 14; x <= 20; x++) {
-        for (let z = 31; z <= 37; z++) {
-          const isBorder = (x === 14 || x === 20 || z === 31 || z === 37);
-          const isCanal = (x === 17);
-          if (isBorder) {
-            w.setBlock(x, vy + 1, z, BLOCKS.LOG);
-          } else if (isCanal) {
-            w.setBlock(x, vy, z, BLOCKS.WATER);
-          } else {
-            w.setBlock(x, vy, z, BLOCKS.FARMLAND);
-          }
-        }
-      }
-      w.setBlock(21, vy + 1, 32, BLOCKS.HAY);
-      w.setBlock(21, vy + 1, 33, BLOCKS.HAY);
-      w.setBlock(21, vy + 2, 32, BLOCKS.HAY);
-      w.setBlock(22, vy + 1, 33, BLOCKS.HAY);
-
-      // 7. Decorative Flower Beds
-      w.setBlock(22, vy + 1, 24, BLOCKS.FLOWER);
-      w.setBlock(22, vy + 1, 25, BLOCKS.FLOWER);
-      w.setBlock(30, vy + 1, 24, BLOCKS.FLOWER);
-      w.setBlock(30, vy + 1, 25, BLOCKS.FLOWER);
-      w.setBlock(24, vy + 1, 22, BLOCKS.FLOWER);
-      w.setBlock(28, vy + 1, 22, BLOCKS.FLOWER);
-    }
-
-    // ========================================================================
-    // 7. CHUNK MESHING & UV MAPPING
-    // ========================================================================
-    function getTileUV(tileIndex) {
-      const col = tileIndex % TILES_X;
-      const row = Math.floor(tileIndex / TILES_X);
-      const step = 1.0 / TILES_X;
-      const u = col * step;
-      const v = 1.0 - (row + 1) * step;
-      return { uMin: u + 0.001, vMin: v + 0.001, uMax: u + step - 0.001, vMax: v + step - 0.001 };
-    }
-
-    const STATIC_FACES = [
-      { dir: [0, 1, 0], name: 'top', corners: [[0,1,1], [1,1,1], [1,1,0], [0,1,0]] },
-      { dir: [0, -1, 0], name: 'bottom', corners: [[0,0,0], [1,0,0], [1,0,1], [0,0,1]] },
-      { dir: [1, 0, 0], name: 'side', corners: [[1,0,1], [1,0,0], [1,1,0], [1,1,1]] },
-      { dir: [-1, 0, 0], name: 'side', corners: [[0,0,0], [0,0,1], [0,1,1], [0,1,0]] },
-      { dir: [0, 0, 1], name: 'side', corners: [[0,0,1], [1,0,1], [1,1,1], [0,1,1]] },
-      { dir: [0, 0, -1], name: 'side', corners: [[1,0,0], [0,0,0], [0,1,0], [1,1,0]] },
-    ];
-
-    function buildChunkMesh(chunk, scene, material) {
-      const positions = [];
-      const normals = [];
-      const uvs = [];
-      const colors = [];
-      const indices = [];
-      let vertexOffset = 0;
-
-      const ox = chunk.cx * 16;
-      const oz = chunk.cz * 16;
-
-      for (let y = 0; y < CHUNK_SIZE_Y; y++) {
-        for (let z = 0; z < 16; z++) {
-          for (let x = 0; x < 16; x++) {
-            const blockId = chunk.getBlock(x, y, z);
-            if (blockId === BLOCKS.AIR) continue;
-            const def = BLOCK_DEFS[blockId];
-            if (!def || !def.tiles) continue;
-
-            const wx = ox + x;
-            const wz = oz + z;
-
-            for (let f = 0; f < 6; f++) {
-              const face = STATIC_FACES[f];
-              const nx = wx + face.dir[0];
-              const ny = y + face.dir[1];
-              const nz = wz + face.dir[2];
-              const neighborId = world.getBlock(nx, ny, nz);
-              const neighborDef = BLOCK_DEFS[neighborId];
-
-              if (neighborId === BLOCKS.AIR || neighborDef?.transparent) {
-                if (blockId === BLOCKS.WATER && neighborId === BLOCKS.WATER) continue;
-                const tileIdx = def.tiles[face.name] || def.tiles.side;
-                const uv = getTileUV(tileIdx);
-
-                for (let i = 0; i < 4; i++) {
-                  const corner = face.corners[i];
-                  positions.push(wx + corner[0], y + corner[1], wz + corner[2]);
-                  normals.push(face.dir[0], face.dir[1], face.dir[2]);
-                  const brightness = face.name === 'top' ? 1.0 : (face.name === 'bottom' ? 0.6 : 0.82);
-                  colors.push(brightness, brightness, brightness);
-                }
-
-                uvs.push(uv.uMin, uv.vMin);
-                uvs.push(uv.uMax, uv.vMin);
-                uvs.push(uv.uMax, uv.vMax);
-                uvs.push(uv.uMin, uv.vMax);
-
-                indices.push(
-                  vertexOffset, vertexOffset + 1, vertexOffset + 2,
-                  vertexOffset, vertexOffset + 2, vertexOffset + 3
-                );
-                vertexOffset += 4;
-              }
-            }
-          }
-        }
-      }
-
-      if (chunk.mesh) {
-        scene.remove(chunk.mesh);
-        chunk.mesh.geometry.dispose();
-        chunk.mesh = null;
-      }
-
-      if (positions.length > 0) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        geometry.setIndex(indices);
-
-        chunk.mesh = new THREE.Mesh(geometry, material);
-        scene.add(chunk.mesh);
-      }
-      chunk.isDirty = false;
-    }
-
-    // ========================================================================
-    // 8. PHYSICAL AABB COLLISION & FIRST-PERSON CONTROLLER (DEBUGGED)
-    // ========================================================================
-    class AABB {
-      constructor(minX = 0, minY = 0, minZ = 0, maxX = 0, maxY = 0, maxZ = 0) {
-        this.minX = minX; this.minY = minY; this.minZ = minZ;
-        this.maxX = maxX; this.maxY = maxY; this.maxZ = maxZ;
-      }
-      set(minX, minY, minZ, maxX, maxY, maxZ) {
-        this.minX = minX; this.minY = minY; this.minZ = minZ;
-        this.maxX = maxX; this.maxY = maxY; this.maxZ = maxZ;
-      }
-      intersects(o) {
-        return this.maxX > o.minX && this.minX < o.maxX &&
-               this.maxY > o.minY && this.minY < o.maxY &&
-               this.maxZ > o.minZ && this.minZ < o.maxZ;
-      }
-    }
-
-    class PlayerController {
-      constructor(camera, domElement) {
-        this.camera = camera;
-        this.domElement = domElement;
-        // DEBUGGED SPAWN: Placed cleanly on village road at (14, 33.5, 26.5) facing East
-        this.position = new THREE.Vector3(14.0, 33.5, 26.5);
-        this.velocity = new THREE.Vector3(0, 0, 0);
-        this.width = 0.6;
-        this.height = 1.8;
-        this.eyeHeight = 1.62;
-        this.isGrounded = false;
-        this.isCrouching = false;
-        this.isSprinting = false;
-
-        this.yaw = -Math.PI * 0.5; // Face East along main street
-        this.pitch = 0.0;
-        this.walkCycle = 0;
-        this.aabb = new AABB();
-        this.updateAABB();
-
-        this.keys = { forward: false, backward: false, left: false, right: false, jump: false, sprint: false, crouch: false };
-        this.bindEvents();
-      }
-      updateAABB() {
-        const hw = this.width * 0.5;
-        const h = this.isCrouching ? 1.45 : this.height;
-        this.aabb.set(
-          this.position.x - hw, this.position.y, this.position.z - hw,
-          this.position.x + hw, this.position.y + h, this.position.z + hw
-        );
-      }
-      bindEvents() {
-        window.addEventListener('keydown', (e) => {
-          // Prevent walking while crafting modal is open
-          if (invModal && !invModal.classList.contains('hidden') && e.code !== 'KeyE') return;
-
-          if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.forward = true;
-          if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.backward = true;
-          if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = true;
-          if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = true;
-          if (e.code === 'Space') this.keys.jump = true;
-          if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.keys.crouch = true;
-          if (e.code === 'ControlLeft') this.keys.sprint = true;
-          if (e.code === 'KeyE') toggleInventory();
-        });
-        window.addEventListener('keyup', (e) => {
-          if (e.code === 'KeyW' || e.code === 'ArrowUp') this.keys.forward = false;
-          if (e.code === 'KeyS' || e.code === 'ArrowDown') this.keys.backward = false;
-          if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.keys.left = false;
-          if (e.code === 'KeyD' || e.code === 'ArrowRight') this.keys.right = false;
-          if (e.code === 'Space') this.keys.jump = false;
-          if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.keys.crouch = false;
-          if (e.code === 'ControlLeft') this.keys.sprint = false;
-        });
-
-        // Mouse look & Pointer Lock
-        let isMouseDown = false;
-        let lastMouseX = 0, lastMouseY = 0;
-        let dragDistance = 0;
-
-        window.addEventListener('mousemove', (e) => {
-          if (document.pointerLockElement === this.domElement) {
-            this.yaw -= e.movementX * 0.0024;
-            this.pitch -= e.movementY * 0.0024;
-            this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch));
-          } else if (isMouseDown) {
-            const dx = e.clientX - lastMouseX;
-            const dy = e.clientY - lastMouseY;
-            dragDistance += Math.abs(dx) + Math.abs(dy);
-            lastMouseX = e.clientX;
-            lastMouseY = e.clientY;
-            this.yaw -= dx * 0.0035;
-            this.pitch -= dy * 0.0035;
-            this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch));
-          }
-        });
-
-        this.domElement.addEventListener('mousedown', (e) => {
-          isMouseDown = true;
-          dragDistance = 0;
-          lastMouseX = e.clientX;
-          lastMouseY = e.clientY;
-        });
-        window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-        // Touch Look Controls (Right side of screen, multi-touch isolated)
-        let lookTouchId = null;
-        let lastTouchX = 0, lastTouchY = 0;
-
-        window.addEventListener('touchstart', (e) => {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            const isRightSide = touch.clientX > (window.innerWidth * 0.35);
-            const targetTag = touch.target.tagName.toLowerCase();
-            const isButton = targetTag === 'button' || touch.target.closest('button');
-            if (isRightSide && !isButton && lookTouchId === null) {
-              lookTouchId = touch.identifier;
-              lastTouchX = touch.clientX;
-              lastTouchY = touch.clientY;
-            }
-          }
-        }, { passive: true });
-
-        window.addEventListener('touchmove', (e) => {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            if (touch.identifier === lookTouchId) {
-              const dx = touch.clientX - lastTouchX;
-              const dy = touch.clientY - lastTouchY;
-              lastTouchX = touch.clientX;
-              lastTouchY = touch.clientY;
-              this.yaw -= dx * 0.0045;
-              this.pitch -= dy * 0.0045;
-              this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch));
-              break;
-            }
-          }
-        }, { passive: true });
-
-        const endTouch = (e) => {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === lookTouchId) {
-              lookTouchId = null;
-              break;
-            }
-          }
-        };
-        window.addEventListener('touchend', endTouch, { passive: true });
-        window.addEventListener('touchcancel', endTouch, { passive: true });
-      }
-
-      update(dt) {
-        dt = Math.min(dt, 0.05);
-        this.isCrouching = this.keys.crouch;
-        this.isSprinting = this.keys.sprint && this.keys.forward && !this.isCrouching;
-
-        let speed = 4.6;
-        if (this.isSprinting) speed *= 1.45;
-        if (this.isCrouching) speed *= 0.38;
-
-        const sinY = Math.sin(this.yaw);
-        const cosY = Math.cos(this.yaw);
-        let mx = 0, mz = 0;
-        if (this.keys.forward)  { mx -= sinY; mz -= cosY; }
-        if (this.keys.backward) { mx += sinY; mz += cosY; }
-        if (this.keys.left)     { mx -= cosY; mz += sinY; }
-        if (this.keys.right)    { mx += cosY; mz -= sinY; }
-
-        const len = Math.sqrt(mx * mx + mz * mz);
-        if (len > 0.001) {
-          mx = (mx / len) * speed;
-          mz = (mz / len) * speed;
-          if (this.isGrounded) this.walkCycle += dt * (this.isSprinting ? 12 : 8);
-        }
-
-        const friction = this.isGrounded ? 12.0 : 3.0;
-        this.velocity.x += (mx - this.velocity.x) * Math.min(1.0, friction * dt);
-        this.velocity.z += (mz - this.velocity.z) * Math.min(1.0, friction * dt);
-
-        // DEBUGGED JUMP: Jumps reliably whenever on the ground
-        if (this.keys.jump && this.isGrounded) {
-          this.velocity.y = 8.6;
-          this.isGrounded = false;
-        }
-
-        // Apply Gravity
-        if (!this.isGrounded) {
-          this.velocity.y -= 26.0 * dt;
-          if (this.velocity.y < -45.0) this.velocity.y = -45.0;
-        }
-
-        this.resolveCollisions(dt);
-
-        const eyeY = this.position.y + (this.isCrouching ? 1.35 : this.eyeHeight);
-        this.camera.position.set(this.position.x, eyeY, this.position.z);
-        const euler = new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ');
-        this.camera.quaternion.setFromEuler(euler);
-      }
-
-      resolveCollisions(dt) {
-        let dx = this.velocity.x * dt;
-        let dy = this.velocity.y * dt;
-        let dz = this.velocity.z * dt;
-
-        this.updateAABB();
-
-        // 1. Resolve Vertical Movement (Y Axis)
-        let groundedThisFrame = false;
-        const collidersY = this.getNearbyColliders(0, dy, 0);
-
-        for (let i = 0; i < collidersY.length; i++) {
-          const box = collidersY[i];
-          if (dy > 0 && this.aabb.maxX > box.minX && this.aabb.minX < box.maxX && this.aabb.maxZ > box.minZ && this.aabb.minZ < box.maxZ) {
-            if (this.aabb.maxY <= box.minY && this.aabb.maxY + dy > box.minY) {
-              dy = box.minY - this.aabb.maxY;
-              this.velocity.y = 0;
-            }
-          }
-          if (dy < 0 && this.aabb.maxX > box.minX && this.aabb.minX < box.maxX && this.aabb.maxZ > box.minZ && this.aabb.minZ < box.maxZ) {
-            if (this.aabb.minY >= box.maxY && this.aabb.minY + dy < box.maxY) {
-              dy = box.maxY - this.aabb.minY;
-              this.velocity.y = 0;
-              groundedThisFrame = true;
-            }
-          }
-        }
-
-        this.position.y += dy;
-        this.isGrounded = groundedThisFrame;
-        this.updateAABB();
-
-        // 2. AUTO-STEP CLIMBING (Smooth 0.6 block step-climbing)
-        const preStepAABB = new AABB(this.aabb.minX, this.aabb.minY, this.aabb.minZ, this.aabb.maxX, this.aabb.maxY, this.aabb.maxZ);
-        const originalDx = dx;
-        const originalDz = dz;
-
-        // Try standard horizontal move
-        let standardDx = dx;
-        let standardDz = dz;
-        const collidersHoriz = this.getNearbyColliders(dx, 0, dz);
-
-        for (let i = 0; i < collidersHoriz.length; i++) {
-          const box = collidersHoriz[i];
-          if (this.aabb.maxY > box.minY && this.aabb.minY < box.maxY && this.aabb.maxZ > box.minZ && this.aabb.minZ < box.maxZ) {
-            if (standardDx > 0 && this.aabb.maxX <= box.minX && this.aabb.maxX + standardDx > box.minX) standardDx = box.minX - this.aabb.maxX;
-            else if (standardDx < 0 && this.aabb.minX >= box.maxX && this.aabb.minX + standardDx < box.maxX) standardDx = box.maxX - this.aabb.minX;
-          }
-          if (this.aabb.maxX > box.minX && this.aabb.minX < box.maxX && this.aabb.maxY > box.minY && this.aabb.minY < box.maxY) {
-            if (standardDz > 0 && this.aabb.maxZ <= box.minZ && this.aabb.maxZ + standardDz > box.minZ) standardDz = box.minZ - this.aabb.maxZ;
-            else if (standardDz < 0 && this.aabb.minZ >= box.maxZ && this.aabb.minZ + standardDz < box.maxZ) standardDz = box.maxZ - this.aabb.minZ;
-          }
-        }
-
-        const wasBlocked = (Math.abs(standardDx) < Math.abs(originalDx) - 0.001) || (Math.abs(standardDz) < Math.abs(originalDz) - 0.001);
-
-        if (this.isGrounded && wasBlocked) {
-          // Attempt step up by 0.6 blocks
-          const stepHeight = 0.6;
-          const steppedAABB = new AABB(preStepAABB.minX, preStepAABB.minY + stepHeight, preStepAABB.minZ, preStepAABB.maxX, preStepAABB.maxY + stepHeight, preStepAABB.maxZ);
-          let stepDx = originalDx;
-          let stepDz = originalDz;
-          const collidersStep = this.getNearbyColliders(stepDx, stepHeight, stepDz);
-
-          for (let i = 0; i < collidersStep.length; i++) {
-            const box = collidersStep[i];
-            if (steppedAABB.maxY > box.minY && steppedAABB.minY < box.maxY && steppedAABB.maxZ > box.minZ && steppedAABB.minZ < box.maxZ) {
-              if (stepDx > 0 && steppedAABB.maxX <= box.minX && steppedAABB.maxX + stepDx > box.minX) stepDx = box.minX - steppedAABB.maxX;
-              else if (stepDx < 0 && steppedAABB.minX >= box.maxX && steppedAABB.minX + stepDx < box.maxX) stepDx = box.maxX - steppedAABB.minX;
-            }
-            if (steppedAABB.maxX > box.minX && steppedAABB.minX < box.maxX && steppedAABB.maxY > box.minY && steppedAABB.minY < box.maxY) {
-              if (stepDz > 0 && steppedAABB.maxZ <= box.minZ && steppedAABB.maxZ + stepDz > box.minZ) stepDz = box.minZ - steppedAABB.maxZ;
-              else if (stepDz < 0 && steppedAABB.minZ >= box.maxZ && steppedAABB.minZ + stepDz < box.maxZ) stepDz = box.maxZ - steppedAABB.minZ;
-            }
-          }
-
-          // If step cleared more distance, commit step up
-          if ((stepDx * stepDx + stepDz * stepDz) > (standardDx * standardDx + standardDz * standardDz)) {
-            this.position.y += stepHeight;
-            this.position.x += stepDx;
-            this.position.z += stepDz;
-            this.updateAABB();
-            return;
-          }
-        }
-
-        // Apply standard horizontal move
-        this.position.x += standardDx;
-        this.position.z += standardDz;
-        this.updateAABB();
-      }
-
-      getNearbyColliders(dx, dy, dz) {
-        const boxes = [];
-        const minX = Math.floor(Math.min(this.aabb.minX, this.aabb.minX + dx) - 0.5);
-        const maxX = Math.floor(Math.max(this.aabb.maxX, this.aabb.maxX + dx) + 0.5);
-        const minY = Math.floor(Math.min(this.aabb.minY, this.aabb.minY + dy) - 0.5);
-        const maxY = Math.floor(Math.max(this.aabb.maxY, this.aabb.maxY + dy) + 0.5);
-        const minZ = Math.floor(Math.min(this.aabb.minZ, this.aabb.minZ + dz) - 0.5);
-        const maxZ = Math.floor(Math.max(this.aabb.maxZ, this.aabb.maxZ + dz) + 0.5);
-
-        for (let y = minY; y <= maxY; y++) {
-          for (let z = minZ; z <= maxZ; z++) {
-            for (let x = minX; x <= maxX; x++) {
-              const id = world.getBlock(x, y, z);
-              if (id !== BLOCKS.AIR && (BLOCK_DEFS[id]?.solid ?? false)) {
-                boxes.push(new AABB(x, y, z, x + 1, y + 1, z + 1));
-              }
-            }
-          }
-        }
-        return boxes;
-      }
-    }
-
-    // ========================================================================
-    // 9. 3D DDA RAYCASTER
-    // ========================================================================
-    function traceVoxelRay(origin, direction, maxDistance = 5.5) {
-      let x = Math.floor(origin.x);
-      let y = Math.floor(origin.y);
-      let z = Math.floor(origin.z);
-
-      const dx = direction.x, dy = direction.y, dz = direction.z;
-      const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
-      const stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
-      const stepZ = dz > 0 ? 1 : dz < 0 ? -1 : 0;
-
-      const tDeltaX = stepX !== 0 ? Math.abs(1.0 / dx) : Infinity;
-      const tDeltaY = stepY !== 0 ? Math.abs(1.0 / dy) : Infinity;
-      const tDeltaZ = stepZ !== 0 ? Math.abs(1.0 / dz) : Infinity;
-
-      let tMaxX = stepX > 0 ? (x + 1.0 - origin.x) * tDeltaX : (origin.x - x) * tDeltaX;
-      let tMaxY = stepY > 0 ? (y + 1.0 - origin.y) * tDeltaY : (origin.y - y) * tDeltaY;
-      let tMaxZ = stepZ > 0 ? (z + 1.0 - origin.z) * tDeltaZ : (origin.z - z) * tDeltaZ;
-
-      let normalX = 0, normalY = 0, normalZ = 0;
-      let dist = 0;
-
-      while (dist <= maxDistance) {
-        if (y >= 0 && y < CHUNK_SIZE_Y) {
-          const id = world.getBlock(x, y, z);
-          if (id !== BLOCKS.AIR && id !== BLOCKS.WATER) {
-            return {
-              hit: true,
-              blockX: x, blockY: y, blockZ: z,
-              placeX: x + normalX, placeY: y + normalY, placeZ: z + normalZ,
-              blockId: id,
-            };
-          }
-        }
-
-        if (tMaxX < tMaxY) {
-          if (tMaxX < tMaxZ) {
-            dist = tMaxX; tMaxX += tDeltaX; x += stepX;
-            normalX = -stepX; normalY = 0; normalZ = 0;
-          } else {
-            dist = tMaxZ; tMaxZ += tDeltaZ; z += stepZ;
-            normalX = 0; normalY = 0; normalZ = -stepZ;
-          }
-        } else {
-          if (tMaxY < tMaxZ) {
-            dist = tMaxY; tMaxY += tDeltaY; y += stepY;
-            normalX = 0; normalY = -stepY; normalZ = 0;
-          } else {
-            dist = tMaxZ; tMaxZ += tDeltaZ; z += stepZ;
-            normalX = 0; normalY = 0; normalZ = -stepZ;
-          }
-        }
-      }
-      return { hit: false };
-    }
-
-    // ========================================================================
-    // 10. INVENTORY & RECIPES
-    // ========================================================================
-    class Inventory {
-      constructor() {
-        this.hotbar = new Array(9).fill(null);
-        this.backpack = new Array(27).fill(null);
-        this.activeSlot = 0;
-        this.craftGrid = new Array(4).fill(null);
-        this.craftOutput = null;
-
-        // Village Builder starter kit
-        this.addItem(BLOCKS.COBBLESTONE, 64);
-        this.addItem(BLOCKS.PLANKS, 64);
-        this.addItem(BLOCKS.LOG, 32);
-        this.addItem(BLOCKS.BRICKS, 32);
-        this.addItem(BLOCKS.GLOWSTONE, 16);
-        this.addItem(BLOCKS.GLASS, 32);
-        this.addItem(BLOCKS.HAY, 16);
-        this.addItem(BLOCKS.FLOWER, 8);
-        this.addItem(BLOCKS.TORCH, 16);
-      }
-      addItem(itemId, count = 1) {
-        for (let i = 0; i < 9; i++) {
-          if (this.hotbar[i] && this.hotbar[i].id === itemId && this.hotbar[i].count < 64) {
-            const add = Math.min(64 - this.hotbar[i].count, count);
-            this.hotbar[i].count += add;
-            count -= add;
-            if (count === 0) return true;
-          }
-        }
-        for (let i = 0; i < 9; i++) {
-          if (!this.hotbar[i]) {
-            this.hotbar[i] = { id: itemId, count };
-            return true;
-          }
-        }
-        for (let i = 0; i < 27; i++) {
-          if (this.backpack[i] && this.backpack[i].id === itemId && this.backpack[i].count < 64) {
-            const add = Math.min(64 - this.backpack[i].count, count);
-            this.backpack[i].count += add;
-            count -= add;
-            if (count === 0) return true;
-          }
-        }
-        for (let i = 0; i < 27; i++) {
-          if (!this.backpack[i]) {
-            this.backpack[i] = { id: itemId, count };
-            return true;
-          }
-        }
-        return false;
-      }
-      getActiveStack() {
-        return this.hotbar[this.activeSlot];
-      }
-      consumeActive(amount = 1) {
-        const stack = this.getActiveStack();
-        if (!stack) return false;
-        stack.count -= amount;
-        if (stack.count <= 0) {
-          this.hotbar[this.activeSlot] = null;
-        }
-        return true;
-      }
-      checkRecipes() {
-        const occupied = this.craftGrid.filter(s => s !== null);
-
-        // 1. Any single Oak Log = 4 Planks
-        if (occupied.length === 1 && occupied[0].id === BLOCKS.LOG) {
-          this.craftOutput = { id: BLOCKS.PLANKS, count: 4 };
-          return;
-        }
-
-        // 2. Any 2 Planks in the grid = 4 Sticks (Shapeless / Flexible)
-        if (occupied.length === 2 && occupied.every(s => s.id === BLOCKS.PLANKS)) {
-          this.craftOutput = { id: BLOCKS.STICK, count: 4 };
-          return;
-        }
-
-        // 3. 1 Glowstone + 1 Stick = 4 Torches
-        if (occupied.length === 2 && occupied.some(s => s.id === BLOCKS.GLOWSTONE) && occupied.some(s => s.id === BLOCKS.STICK)) {
-          this.craftOutput = { id: BLOCKS.TORCH, count: 4 };
-          return;
-        }
-
-        // 4. 2 Planks + 1 Stick = 1 Wooden Pickaxe
-        const plankCount = this.craftGrid.filter(s => s?.id === BLOCKS.PLANKS).length;
-        const stickCount = this.craftGrid.filter(s => s?.id === BLOCKS.STICK).length;
-        if (plankCount === 2 && stickCount === 1 && occupied.length === 3) {
-          this.craftOutput = { id: BLOCKS.WOOD_PICKAXE, count: 1 };
-          return;
-        }
-
-        this.craftOutput = null;
-      }
-    }
-    const inventory = new Inventory();
-
-    // ========================================================================
-    // 11. THREE.JS SCENE SETUP
-    // ========================================================================
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x7ec0ee);
-    scene.fog = new THREE.FogExp2(0x7ec0ee, 0.015);
-
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 500);
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.68);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-    dirLight.position.set(50, 100, 30);
-    scene.add(dirLight);
-
-    const voxelMaterial = new THREE.MeshLambertMaterial({
-      map: atlasTexture,
-      vertexColors: true,
-      transparent: true,
-      alphaTest: 0.15,
-      side: THREE.DoubleSide
-    });
-
-    const boxGeo = new THREE.BoxGeometry(1.002, 1.002, 1.002);
-    const boxMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2, transparent: true, opacity: 0.75 });
-    const wireframeBox = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), boxMat);
-    wireframeBox.visible = false;
-    scene.add(wireframeBox);
-
-    const player = new PlayerController(camera, renderer.domElement);
-
-    // ========================================================================
-    // 12. ANIMATED VILLAGER NPCS (DEBUGGED AI)
-    // ========================================================================
-    class VillagerNPC {
-      constructor(name, role, avatarEmoji, robeColor, x, y, z, dialogueLines) {
-        this.name = name;
-        this.role = role;
-        this.avatar = avatarEmoji;
-        this.dialogues = dialogueLines;
-        this.dialogueIdx = 0;
-        this.baseY = y;
-        this.currentPos = new THREE.Vector3(x, y, z);
-        this.walkAngle = Math.random() * Math.PI * 2;
-        this.walkTimer = 0;
-        this.mesh = this.createMesh(robeColor);
-        this.mesh.position.copy(this.currentPos);
-        scene.add(this.mesh);
-      }
-      createMesh(robeHex) {
-        const group = new THREE.Group();
-        const skinMat = new THREE.MeshLambertMaterial({ color: 0xc89d6e });
-        const robeMat = new THREE.MeshLambertMaterial({ color: robeHex });
-        const darkMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.52, 0.48), skinMat);
-        head.position.y = 1.35;
-        group.add(head);
-
-        const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.15), skinMat);
-        nose.position.set(0, 1.3, 0.28);
-        group.add(nose);
-
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x15803d });
-        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), eyeMat);
-        eyeL.position.set(-0.14, 1.42, 0.245);
-        const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), eyeMat);
-        eyeR.position.set(0.14, 1.42, 0.245);
-        group.add(eyeL);
-        group.add(eyeR);
-
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.72, 0.38), robeMat);
-        body.position.y = 0.78;
-        group.add(body);
-
-        const arms = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.22, 0.22), robeMat);
-        arms.position.set(0, 0.78, 0.22);
-        group.add(arms);
-
-        this.leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.44, 0.22), darkMat);
-        this.leftLeg.position.set(-0.14, 0.22, 0);
-        this.rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.44, 0.22), darkMat);
-        this.rightLeg.position.set(0.14, 0.22, 0);
-        group.add(this.leftLeg);
-        group.add(this.rightLeg);
-
-        return group;
-      }
-      update(dt, playerPos) {
-        const distToPlayer = this.currentPos.distanceTo(playerPos);
-
-        if (distToPlayer < 5.5) {
-          const dx = playerPos.x - this.currentPos.x;
-          const dz = playerPos.z - this.currentPos.z;
-          this.mesh.rotation.y = Math.atan2(dx, dz);
-          if (this.leftLeg) this.leftLeg.rotation.x = 0;
-          if (this.rightLeg) this.rightLeg.rotation.x = 0;
-        } else {
-          this.walkTimer -= dt;
-          if (this.walkTimer <= 0) {
-            this.walkTimer = 2.5 + Math.random() * 3.5;
-            this.walkAngle = Math.random() * Math.PI * 2;
-          }
-          const moveSpeed = 0.7;
-          const nextX = this.currentPos.x + Math.sin(this.walkAngle) * moveSpeed * dt;
-          const nextZ = this.currentPos.z + Math.cos(this.walkAngle) * moveSpeed * dt;
-
-          // Clamp within village boundaries & prevent walking through walls
-          if (nextX >= 15 && nextX <= 37 && nextZ >= 15 && nextZ <= 37) {
-            this.currentPos.x = nextX;
-            this.currentPos.z = nextZ;
-          } else {
-            this.walkAngle += Math.PI;
-          }
-
-          this.currentPos.y = this.baseY;
-          this.mesh.position.copy(this.currentPos);
-          this.mesh.rotation.y = this.walkAngle;
-
-          const legSwing = Math.sin(performance.now() * 0.006) * 0.45;
-          if (this.leftLeg) this.leftLeg.rotation.x = legSwing;
-          if (this.rightLeg) this.rightLeg.rotation.x = -legSwing;
-        }
-      }
-      sayNext() {
-        audio.playVillager();
-        const text = this.dialogues[this.dialogueIdx];
-        this.dialogueIdx = (this.dialogueIdx + 1) % this.dialogues.length;
-        showVillagerSpeech(this.name, this.role, this.avatar, text);
-      }
-    }
-
-    const villagers = [];
-    function initVillagers() {
-      villagers.push(new VillagerNPC(
-        "Farmer Finn", "Village Farmer", "🌾", 0x8b5a2b, 18, 33, 27,
-        [
-          "Hrrrm! Welcome to Oakvale Village! The wheat harvest is bountiful this season!",
-          "Fresh bread every morning! Try harvesting the crops with left click!",
-          "Our water well in the town center is crystal clear and never runs dry!"
-        ]
-      ));
-      villagers.push(new VillagerNPC(
-        "Mayor Arthur", "Town Elder", "📜", 0x7c2d12, 24, 33, 23,
-        [
-          "Hrrrm! Greetings traveler! You are safe within our glowing streetlamps.",
-          "Feel free to build your own cottage here in Oakvale with your backpack blocks!",
-          "The tall watchtower gives a breathtaking view of the mountains!"
-        ]
-      ));
-      villagers.push(new VillagerNPC(
-        "Smithy Donald", "Master Blacksmith", "🛡️", 0x374151, 31, 33, 23,
-        [
-          "Hrrrm! Clang, clang! My forge burns hot day and night!",
-          "Need stone tools? The mountains east of here are rich in raw granite!",
-          "Check out the chimney on my workshop—pure brick masonry!"
-        ]
-      ));
-      villagers.push(new VillagerNPC(
-        "Watchman Luke", "Tower Scout", "🏹", 0x1e3a8a, 32, 33, 31,
-        [
-          "Hrrrm! All clear across the valley! No creepers in sight!",
-          "Climb the watchtower for the best sunset view in the realm!"
-        ]
-      ));
-    }
-
-    const speechBubble = document.getElementById('speech-bubble');
-    const speechName = document.getElementById('speech-name');
-    const speechText = document.getElementById('speech-text');
-    const speechAvatar = document.getElementById('speech-avatar');
-    let speechTimer = null;
-
-    function showVillagerSpeech(name, role, avatar, text) {
-      if (!speechBubble) return;
-      speechName.textContent = `${name} (${role})`;
-      speechText.textContent = text;
-      speechAvatar.textContent = avatar;
-      speechBubble.style.opacity = '1';
-      speechBubble.style.transform = 'translate(-50%, 0px)';
-      clearTimeout(speechTimer);
-      speechTimer = setTimeout(() => {
-        speechBubble.style.opacity = '0';
-        speechBubble.style.transform = 'translate(-50%, -8px)';
-      }, 4200);
-    }
-
-    function triggerNearestVillagerChat() {
-      let nearest = null;
-      let minDist = 7.0;
-      for (const v of villagers) {
-        const d = v.currentPos.distanceTo(player.position);
-        if (d < minDist) {
-          minDist = d;
-          nearest = v;
-        }
-      }
-      if (nearest) nearest.sayNext();
-      else showNotification("Approach a villager to talk!");
-    }
-    document.getElementById('btn-talk').addEventListener('click', triggerNearestVillagerChat);
-
-    // ========================================================================
-    // 13. UI CONTROLS & EVENT BINDINGS (DEBUGGED)
-    // ========================================================================
-    let currentRayHit = { hit: false };
-    const hudMessage = document.getElementById('hud-message');
-    function showNotification(txt) {
-      if (!hudMessage) return;
-      hudMessage.textContent = txt;
-      hudMessage.style.opacity = '1';
-      clearTimeout(hudMessage.timer);
-      hudMessage.timer = setTimeout(() => { hudMessage.style.opacity = '0'; }, 2400);
-    }
-
-    function handleStartGame() {
-      audio.init();
-      const startScreen = document.getElementById('start-screen');
-      if (startScreen) startScreen.style.display = 'none';
-      try { renderer.domElement.requestPointerLock(); } catch (err) {}
-      showNotification('📍 Welcome to Oakvale Village! Explore & Build.');
-      setTimeout(() => { if (villagers[0]) villagers[0].sayNext(); }, 600);
-    }
-
-    const playBtn = document.getElementById('btn-play');
-    if (playBtn) {
-      playBtn.addEventListener('click', handleStartGame);
-      playBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        handleStartGame();
+        container.appendChild(slot);
       });
     }
 
-    document.getElementById('btn-menu').addEventListener('click', () => {
-      const startScreen = document.getElementById('start-screen');
-      if (startScreen) startScreen.style.display = 'flex';
-      try { document.exitPointerLock(); } catch (e) {}
-    });
-
-    document.getElementById('btn-fullscreen').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
-    });
-
-    // Held Item Visuals
-    const heldContainer = document.getElementById('held-item-container');
-    const heldIcon = document.getElementById('held-item-icon');
-    const heldName = document.getElementById('held-item-name');
-    const heldPreview = document.getElementById('held-item-preview');
-
-    function triggerPunchAnimation() {
-      if (!heldContainer) return;
-      heldContainer.classList.remove('punch-anim');
-      void heldContainer.offsetWidth;
-      heldContainer.classList.add('punch-anim');
-    }
-
-    function updateHeldItemDisplay() {
-      if (!heldName || !heldIcon) return;
-      const stack = inventory.getActiveStack();
-      if (stack) {
-        const def = BLOCK_DEFS[stack.id];
-        heldName.textContent = def?.name || 'Item';
-        heldIcon.textContent = stack.id === BLOCKS.GRASS ? '🌿' :
-                               stack.id === BLOCKS.DIRT ? '🟤' :
-                               stack.id === BLOCKS.STONE ? '🪨' :
-                               stack.id === BLOCKS.LOG ? '🪵' :
-                               stack.id === BLOCKS.LEAVES ? '🍃' :
-                               stack.id === BLOCKS.GLASS ? '🪟' :
-                               stack.id === BLOCKS.GLOWSTONE ? '✨' :
-                               stack.id === BLOCKS.PLANKS ? '📦' :
-                               stack.id === BLOCKS.COBBLESTONE ? '🧱' :
-                               stack.id === BLOCKS.BRICKS ? '🟥' :
-                               stack.id === BLOCKS.PATH ? '🟫' :
-                               stack.id === BLOCKS.FARMLAND ? '🌾' :
-                               stack.id === BLOCKS.BOOKSHELF ? '📚' :
-                               stack.id === BLOCKS.HAY ? '🌾' :
-                               stack.id === BLOCKS.FLOWER ? '🌹' :
-                               stack.id === BLOCKS.WOOD_PICKAXE ? '⛏️' :
-                               stack.id === BLOCKS.TORCH ? '🔥' : '🧱';
-        if (heldPreview) heldPreview.style.borderColor = 'rgba(250, 204, 21, 0.7)';
-      } else {
-        heldName.textContent = 'Empty Hand';
-        heldIcon.textContent = '✋';
-        if (heldPreview) heldPreview.style.borderColor = 'rgba(120, 120, 120, 0.3)';
+    function renderBackpack() {
+      const grid = document.getElementById('backpack-grid');
+      grid.innerHTML = '';
+      for (const [item, count] of Object.entries(GameState.inventory)) {
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-gray-900 border border-gray-800 rounded-xl flex flex-col items-center justify-center text-center';
+        card.innerHTML = `
+          <div class="text-2xl mb-1">${getItemEmoji(item)}</div>
+          <div class="text-xs font-semibold capitalize text-gray-300">${item.replace('_', ' ')}</div>
+          <div class="text-xs font-mono font-bold text-amber-400 mt-1">x${count}</div>
+        `;
+        grid.appendChild(card);
       }
     }
 
-    const hotbarEl = document.getElementById('hotbar');
-    function renderHotbar() {
-      if (!hotbarEl) return;
-      hotbarEl.innerHTML = '';
-      for (let i = 0; i < 9; i++) {
-        const stack = inventory.hotbar[i];
-        const slot = document.createElement('div');
-        const isActive = inventory.activeSlot === i;
-        slot.className = `w-10 h-10 sm:w-11 sm:h-11 rounded-xl border-2 flex flex-col items-center justify-center relative cursor-pointer pixel-border transition-all select-none ${
-          isActive ? 'hotbar-slot-active bg-neutral-700/95' : 'border-neutral-600 bg-neutral-800/80 hover:border-neutral-400'
-        }`;
-        if (stack) {
-          const def = BLOCK_DEFS[stack.id];
-          slot.innerHTML = `
-            <div class="text-[9px] sm:text-[10px] text-neutral-200 font-black text-center px-0.5 truncate w-full leading-tight pointer-events-none">${def?.name || stack.id}</div>
-            <div class="absolute bottom-0.5 right-1 text-[10px] font-black text-amber-300 drop-shadow pointer-events-none">${stack.count > 1 ? stack.count : ''}</div>
-          `;
+    function getItemEmoji(id) {
+      const emojis = {
+        wood: '🪵', stone: '🪨', dirt: '🟫', plank: '📦',
+        stick: '🥢', torch: '🔥', brick: '🧱',
+        diamond_block: '💎', obsidian: '⬛'
+      };
+      return emojis[id] || '📦';
+    }
+
+    /* ===============================================================
+       3D GRAPHICS (THREE.JS SETUP)
+       =============================================================== */
+    let scene, camera, renderer, worldChunks = [];
+    const container = document.getElementById('canvas-container');
+
+    function init3D() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // Daytime sky
+      scene.fog = new THREE.FogExp2(0x87ceeb, 0.02);
+
+      camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 3, 5);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      // Lighting
+      const ambient = new THREE.AmbientLight(0xffffff, 0.65);
+      scene.add(ambient);
+      const sun = new THREE.DirectionalLight(0xfff5e6, 0.85);
+      sun.position.set(40, 70, 30);
+      scene.add(sun);
+
+      // Generate Procedural Oakvale Village Ground & Houses
+      generateVillageTerrain();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function generateVillageTerrain() {
+      const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+      const greenMat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+      const stoneMat = new THREE.MeshLambertMaterial({ color: 0x7f8c8d });
+      const roofMat = new THREE.MeshLambertMaterial({ color: 0xa93226 });
+
+      // Ground plane
+      const ground = new THREE.Group();
+      for (let x = -15; x <= 15; x++) {
+        for (let z = -15; z <= 15; z++) {
+          const block = new THREE.Mesh(boxGeo, greenMat);
+          block.position.set(x, -0.5, z);
+          ground.add(block);
         }
-        const selectSlot = (e) => {
-          e.stopPropagation();
-          inventory.activeSlot = i;
-          renderHotbar();
-          updateHeldItemDisplay();
-        };
-        slot.addEventListener('click', selectSlot);
-        slot.addEventListener('touchstart', selectSlot, { passive: true });
-        hotbarEl.appendChild(slot);
       }
-      updateHeldItemDisplay();
+      scene.add(ground);
+
+      // Cottage 1
+      createCottage(-5, 0, -6, woodMat, roofMat);
+      // Cottage 2 (Town Hall)
+      createCottage(6, 0, -8, stoneMat, roofMat);
+      // Town Well in Center
+      createWell(0, 0, 0, stoneMat);
     }
-    renderHotbar();
 
-    document.getElementById('btn-hotbar-prev').addEventListener('click', (e) => {
-      e.stopPropagation();
-      inventory.activeSlot = (inventory.activeSlot + 8) % 9;
-      renderHotbar();
-    });
-    document.getElementById('btn-hotbar-next').addEventListener('click', (e) => {
-      e.stopPropagation();
-      inventory.activeSlot = (inventory.activeSlot + 1) % 9;
-      renderHotbar();
-    });
-
-    window.addEventListener('wheel', (e) => {
-      if (e.deltaY > 0) inventory.activeSlot = (inventory.activeSlot + 1) % 9;
-      else inventory.activeSlot = (inventory.activeSlot + 8) % 9;
-      renderHotbar();
-    }, { passive: true });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key >= '1' && e.key <= '9') {
-        inventory.activeSlot = parseInt(e.key) - 1;
-        renderHotbar();
-      }
-    });
-
-    // ========================================================================
-    // 14. CRAFTING MODAL & RECIPE UI
-    // ========================================================================
-    const invModal = document.getElementById('inventory-modal');
-    function toggleInventory() {
-      const isHidden = invModal.classList.toggle('hidden');
-      if (!isHidden) {
-        try { document.exitPointerLock(); } catch (e) {}
-        updateInventoryUI();
-      } else {
-        renderHotbar();
-      }
-    }
-    document.getElementById('btn-toggle-inv').addEventListener('click', toggleInventory);
-    document.getElementById('btn-close-inv').addEventListener('click', toggleInventory);
-
-    function updateInventoryUI() {
-      for (let i = 0; i < 4; i++) {
-        const slotEl = document.getElementById(`craft-slot-${i}`);
-        const stack = inventory.craftGrid[i];
-        slotEl.innerHTML = stack ? `<div class="text-[10px] font-bold text-center px-1">${BLOCK_DEFS[stack.id]?.name}<br><span class="text-amber-300">x${stack.count}</span></div>` : '';
-        slotEl.onclick = () => {
-          if (inventory.craftGrid[i]) {
-            inventory.addItem(inventory.craftGrid[i].id, inventory.craftGrid[i].count);
-            inventory.craftGrid[i] = null;
-            updateInventoryUI();
-            renderHotbar();
-          }
-        };
-      }
-
-      inventory.checkRecipes();
-      const outSlotEl = document.getElementById('craft-output-slot');
-      if (inventory.craftOutput) {
-        const def = BLOCK_DEFS[inventory.craftOutput.id];
-        outSlotEl.innerHTML = `<div class="text-xs font-bold text-amber-300 text-center leading-tight">${def?.name}<br>x${inventory.craftOutput.count}</div>`;
-      } else {
-        outSlotEl.innerHTML = '<span class="text-xs text-neutral-500">Empty</span>';
-      }
-
-      outSlotEl.onclick = () => {
-        if (inventory.craftOutput) {
-          audio.playCraft();
-          triggerPunchAnimation();
-          inventory.addItem(inventory.craftOutput.id, inventory.craftOutput.count);
-          for (let i = 0; i < 4; i++) {
-            if (inventory.craftGrid[i]) {
-              inventory.craftGrid[i].count--;
-              if (inventory.craftGrid[i].count <= 0) inventory.craftGrid[i] = null;
+    function createCottage(baseX, baseY, baseZ, wallMat, roofMat) {
+      const group = new THREE.Group();
+      const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+      // Walls 4x3x4
+      for (let x = 0; x < 4; x++) {
+        for (let y = 0; y < 3; y++) {
+          for (let z = 0; z < 4; z++) {
+            if (x === 0 || x === 3 || z === 0 || z === 3) {
+              if (z === 3 && x === 1 && y < 2) continue; // Door opening
+              const block = new THREE.Mesh(boxGeo, wallMat);
+              block.position.set(baseX + x, baseY + y + 0.5, baseZ + z);
+              group.add(block);
             }
           }
-          showNotification(`Crafted ${BLOCK_DEFS[inventory.craftOutput.id].name}!`);
-          updateInventoryUI();
-          renderHotbar();
         }
-      };
-
-      const invHotbarGrid = document.getElementById('inv-hotbar-grid');
-      invHotbarGrid.innerHTML = '';
-      for (let i = 0; i < 9; i++) {
-        const stack = inventory.hotbar[i];
-        const slot = document.createElement('div');
-        slot.className = 'w-9 h-9 sm:w-10 sm:h-10 bg-neutral-800 border border-neutral-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-amber-400 relative select-none';
-        if (stack) {
-          slot.innerHTML = `<div class="text-[9px] text-center font-bold truncate w-full px-0.5">${BLOCK_DEFS[stack.id]?.name}</div><div class="absolute bottom-0 right-1 text-[9px] text-amber-300 font-bold">${stack.count}</div>`;
-        }
-        slot.onclick = () => {
-          if (stack) {
-            for (let c = 0; c < 4; c++) {
-              if (!inventory.craftGrid[c]) {
-                inventory.craftGrid[c] = { id: stack.id, count: 1 };
-                stack.count--;
-                if (stack.count <= 0) inventory.hotbar[i] = null;
-                updateInventoryUI();
-                renderHotbar();
-                break;
-              }
-            }
-          }
-        };
-        invHotbarGrid.appendChild(slot);
       }
-
-      const bpEl = document.getElementById('backpack-grid');
-      bpEl.innerHTML = '';
-      for (let i = 0; i < 27; i++) {
-        const stack = inventory.backpack[i];
-        const slot = document.createElement('div');
-        slot.className = 'w-9 h-9 sm:w-10 sm:h-10 bg-neutral-800 border border-neutral-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-amber-400 relative select-none';
-        if (stack) {
-          slot.innerHTML = `<div class="text-[9px] text-center font-bold truncate w-full px-0.5">${BLOCK_DEFS[stack.id]?.name}</div><div class="absolute bottom-0 right-1 text-[9px] text-amber-300 font-bold">${stack.count}</div>`;
+      // Roof
+      for (let x = -0.5; x <= 3.5; x++) {
+        for (let z = -0.5; z <= 3.5; z++) {
+          const roof = new THREE.Mesh(boxGeo, roofMat);
+          roof.position.set(baseX + x, baseY + 3.5, baseZ + z);
+          roof.scale.set(0.9, 0.4, 0.9);
+          group.add(roof);
         }
-        slot.onclick = () => {
-          if (stack) {
-            for (let c = 0; c < 4; c++) {
-              if (!inventory.craftGrid[c]) {
-                inventory.craftGrid[c] = { id: stack.id, count: 1 };
-                stack.count--;
-                if (stack.count <= 0) inventory.backpack[i] = null;
-                updateInventoryUI();
-                renderHotbar();
-                break;
-              }
-            }
-          }
-        };
-        bpEl.appendChild(slot);
       }
+      scene.add(group);
     }
 
-    document.getElementById('btn-clear-craft').addEventListener('click', () => {
-      for (let i = 0; i < 4; i++) {
-        if (inventory.craftGrid[i]) {
-          inventory.addItem(inventory.craftGrid[i].id, inventory.craftGrid[i].count);
-          inventory.craftGrid[i] = null;
-        }
-      }
-      updateInventoryUI();
-      renderHotbar();
-    });
-
-    document.getElementById('quick-planks-btn').addEventListener('click', () => {
-      let found = false;
-      for (let i = 0; i < 9; i++) {
-        if (inventory.hotbar[i]?.id === BLOCKS.LOG) {
-          inventory.hotbar[i].count--;
-          if (inventory.hotbar[i].count <= 0) inventory.hotbar[i] = null;
-          inventory.addItem(BLOCKS.PLANKS, 4);
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        audio.playCraft();
-        triggerPunchAnimation();
-        showNotification("Crafted 4x Planks!");
-        updateInventoryUI();
-        renderHotbar();
-      } else {
-        showNotification("Need 1 Oak Log in hotbar!");
-      }
-    });
-
-    document.getElementById('quick-sticks-btn').addEventListener('click', () => {
-      let found = false;
-      for (let i = 0; i < 9; i++) {
-        if (inventory.hotbar[i]?.id === BLOCKS.PLANKS && inventory.hotbar[i].count >= 2) {
-          inventory.hotbar[i].count -= 2;
-          if (inventory.hotbar[i].count <= 0) inventory.hotbar[i] = null;
-          inventory.addItem(BLOCKS.STICK, 4);
-          found = true;
-          break;
-        }
-      }
-      if (found) {
-        audio.playCraft();
-        triggerPunchAnimation();
-        showNotification("Crafted 4x Sticks!");
-        updateInventoryUI();
-        renderHotbar();
-      } else {
-        showNotification("Need 2 Planks in hotbar!");
-      }
-    });
-
-    document.getElementById('quick-pick-btn').addEventListener('click', () => {
-      inventory.addItem(BLOCKS.WOOD_PICKAXE, 1);
-      audio.playCraft();
-      triggerPunchAnimation();
-      showNotification("Crafted Wooden Pickaxe!");
-      updateInventoryUI();
-      renderHotbar();
-    });
-
-    document.getElementById('quick-torch-btn').addEventListener('click', () => {
-      inventory.addItem(BLOCKS.TORCH, 4);
-      audio.playCraft();
-      triggerPunchAnimation();
-      showNotification("Crafted 4x Torches!");
-      updateInventoryUI();
-      renderHotbar();
-    });
-
-    // ========================================================================
-    // 15. D-PAD & TOUCH ACTIONS (DEBUGGED)
-    // ========================================================================
-    function bindDpad(btnId, keyName) {
-      const el = document.getElementById(btnId);
-      if (!el) return;
-      const press = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        player.keys[keyName] = true;
-        el.classList.add('active');
-      };
-      const release = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        player.keys[keyName] = false;
-        el.classList.remove('active');
-      };
-      el.addEventListener('mousedown', press);
-      el.addEventListener('mouseup', release);
-      el.addEventListener('mouseleave', release);
-      el.addEventListener('touchstart', press, { passive: false });
-      el.addEventListener('touchend', release, { passive: false });
-      el.addEventListener('touchcancel', release, { passive: false });
-    }
-    bindDpad('dpad-up', 'forward');
-    bindDpad('dpad-down', 'backward');
-    bindDpad('dpad-left', 'left');
-    bindDpad('dpad-right', 'right');
-
-    const dpadCenter = document.getElementById('dpad-center');
-    dpadCenter.addEventListener('click', (e) => {
-      e.stopPropagation();
-      player.keys.crouch = !player.keys.crouch;
-      dpadCenter.classList.toggle('text-yellow-400', player.keys.crouch);
-      showNotification(player.keys.crouch ? "Crouch: ON" : "Crouch: OFF");
-    });
-
-    function executeBreak() {
-      triggerPunchAnimation();
-      if (currentRayHit.hit) {
-        const { blockX, blockY, blockZ, blockId } = currentRayHit;
-        world.setBlock(blockX, blockY, blockZ, BLOCKS.AIR);
-        audio.playBreak();
-        inventory.addItem(blockId, 1);
-        renderHotbar();
-        remeshDirtyChunks();
-        showNotification(`Mined ${BLOCK_DEFS[blockId]?.name || 'Block'}`);
-        currentRayHit.hit = false;
-        wireframeBox.visible = false;
-      } else {
-        triggerNearestVillagerChat();
-      }
+    function createWell(x, y, z, mat) {
+      const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+      const well = new THREE.Group();
+      [-1, 1].forEach(dx => {
+        [-1, 1].forEach(dz => {
+          const pillar = new THREE.Mesh(boxGeo, mat);
+          pillar.position.set(x + dx, y + 0.5, z + dz);
+          well.add(pillar);
+        });
+      });
+      scene.add(well);
     }
 
-    function executePlace() {
-      triggerPunchAnimation();
-      if (currentRayHit.hit) {
-        const stack = inventory.getActiveStack();
-        if (stack && BLOCK_DEFS[stack.id]?.isBlock) {
-          const px = currentRayHit.placeX;
-          const py = currentRayHit.placeY;
-          const pz = currentRayHit.placeZ;
+    /* ===============================================================
+       MAIN 3D GAME RENDER LOOP
+       =============================================================== */
+    function gameLoop(timestamp) {
+      if (AdManager.isAdActive) return; // Halt loop during active ad
 
-          const blockAABB = new AABB(px, py, pz, px + 1, py + 1, pz + 1);
-          if (!blockAABB.intersects(player.aabb) || !BLOCK_DEFS[stack.id].solid) {
-            world.setBlock(px, py, pz, stack.id);
-            audio.playPlace();
-            inventory.consumeActive(1);
-            renderHotbar();
-            remeshDirtyChunks();
-            showNotification(`Placed ${BLOCK_DEFS[stack.id]?.name}`);
-            currentRayHit.hit = false;
-            wireframeBox.visible = false;
-          }
-        } else {
-          showNotification("Select a placeable block in hotbar!");
-        }
-      } else {
-        showNotification("Look at a surface to build!");
-      }
-    }
+      const dt = (timestamp - GameState.lastTime) / 1000;
+      GameState.lastTime = timestamp;
 
-    document.getElementById('btn-touch-break').addEventListener('click', (e) => { e.stopPropagation(); executeBreak(); });
-    document.getElementById('btn-touch-place').addEventListener('click', (e) => { e.stopPropagation(); executePlace(); });
+      // Gentle camera orbit when idle
+      if (!GameState.isPaused) {
+        camera.position.x = Math.sin(timestamp * 0.0003) * 12;
+        camera.position.z = Math.cos(timestamp * 0.0003) * 12;
+        camera.lookAt(0, 1, 0);
 
-    const btnTouchJump = document.getElementById('btn-touch-jump');
-    const jumpStart = (e) => { e.preventDefault(); e.stopPropagation(); player.keys.jump = true; };
-    const jumpEnd = (e) => { e.preventDefault(); e.stopPropagation(); player.keys.jump = false; };
-    btnTouchJump.addEventListener('mousedown', jumpStart);
-    btnTouchJump.addEventListener('mouseup', jumpEnd);
-    btnTouchJump.addEventListener('mouseleave', jumpEnd);
-    btnTouchJump.addEventListener('touchstart', jumpStart, { passive: false });
-    btnTouchJump.addEventListener('touchend', jumpEnd, { passive: false });
-    btnTouchJump.addEventListener('touchcancel', jumpEnd, { passive: false });
-
-    const btnTouchSprint = document.getElementById('btn-touch-sprint');
-    btnTouchSprint.addEventListener('click', (e) => {
-      e.stopPropagation();
-      player.keys.sprint = !player.keys.sprint;
-      btnTouchSprint.classList.toggle('bg-emerald-600', player.keys.sprint);
-      showNotification(player.keys.sprint ? "Sprint: ON" : "Sprint: OFF");
-    });
-
-    window.addEventListener('contextmenu', e => e.preventDefault());
-
-    // DEBUGGED CANVAS MOUSE INTERACTION (prevents accidental break when dragging to look)
-    let canvasMouseDownPos = { x: 0, y: 0 };
-    renderer.domElement.addEventListener('mousedown', (e) => {
-      canvasMouseDownPos = { x: e.clientX, y: e.clientY };
-    });
-    renderer.domElement.addEventListener('mouseup', (e) => {
-      if (e.target !== renderer.domElement) return;
-      const moved = Math.hypot(e.clientX - canvasMouseDownPos.x, e.clientY - canvasMouseDownPos.y);
-      if (moved < 6) { // Click threshold
-        if (e.button === 0) executeBreak();
-        else if (e.button === 2) executePlace();
-      }
-    });
-
-    function remeshDirtyChunks() {
-      for (const chunk of world.chunks.values()) {
-        if (chunk.isDirty) {
-          buildChunkMesh(chunk, scene, voxelMaterial);
-        }
-      }
-    }
-
-    // ========================================================================
-    // 16. TERRAIN STREAMING & VILLAGE INITIALIZATION
-    // ========================================================================
-    const RENDER_DISTANCE = 2;
-
-    function streamWorldAroundPlayer() {
-      const pcx = Math.floor(player.position.x) >> 4;
-      const pcz = Math.floor(player.position.z) >> 4;
-
-      for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
-        for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
-          const cx = pcx + dx;
-          const cz = pcz + dz;
-          if (!world.getChunk(cx, cz)) {
-            const chunk = new Chunk(cx, cz);
-            generateChunkTerrain(chunk);
-            world.chunks.set(chunk.key, chunk);
-          }
-        }
-      }
-
-      for (const chunk of world.chunks.values()) {
-        if (chunk.isDirty) {
-          buildChunkMesh(chunk, scene, voxelMaterial);
-        }
-      }
-    }
-
-    // Initial world generation around village center
-    streamWorldAroundPlayer();
-    // Build Oakvale Village into the world chunks!
-    generateOakvaleVillage(world);
-    remeshDirtyChunks();
-
-    // Spawn Villagers in Oakvale
-    initVillagers();
-
-    // ========================================================================
-    // 17. MAIN GAME LOOP
-    // ========================================================================
-    let lastTime = performance.now();
-    let frameCount = 0;
-    let fpsTimer = 0;
-    let celestialTime = 0.28;
-
-    const rayDir = new THREE.Vector3();
-    const fpsCounter = document.getElementById('fps-counter');
-    const posCounter = document.getElementById('pos-counter');
-    const targetCounter = document.getElementById('target-counter');
-    const timeCounter = document.getElementById('time-counter');
-
-    function getFacingCardinal(yaw) {
-      let normalized = (yaw % (Math.PI * 2));
-      if (normalized < 0) normalized += Math.PI * 2;
-      const deg = (normalized * 180 / Math.PI);
-      if (deg >= 315 || deg < 45) return 'S';
-      if (deg >= 45 && deg < 135) return 'W';
-      if (deg >= 135 && deg < 225) return 'N';
-      return 'E';
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const now = performance.now();
-      const dt = (now - lastTime) / 1000.0;
-      lastTime = now;
-
-      frameCount++;
-      fpsTimer += dt;
-      if (fpsTimer >= 0.5) {
-        if (fpsCounter) fpsCounter.textContent = `FPS: ${Math.round((frameCount / fpsTimer))}`;
-        frameCount = 0;
-        fpsTimer = 0;
-      }
-
-      // Celestial Sun Orbit
-      celestialTime += dt * 0.003;
-      const sunAngle = celestialTime * Math.PI * 2.0;
-      dirLight.position.set(Math.cos(sunAngle) * 100, Math.sin(sunAngle) * 100, 30);
-      const sunHeight = Math.sin(sunAngle);
-
-      if (sunHeight > 0.1) {
-        scene.background.setRGB(0.48, 0.75, 0.98);
-        scene.fog.color.setRGB(0.48, 0.75, 0.98);
-        dirLight.intensity = 0.85;
-        if (timeCounter) {
-          timeCounter.textContent = '☀️ Day';
-          timeCounter.className = 'text-amber-300 font-bold';
-        }
-      } else if (sunHeight > -0.15) {
-        scene.background.setRGB(0.85, 0.45, 0.25);
-        scene.fog.color.setRGB(0.85, 0.45, 0.25);
-        dirLight.intensity = 0.4;
-        if (timeCounter) {
-          timeCounter.textContent = '🌅 Dusk';
-          timeCounter.className = 'text-orange-400 font-bold';
-        }
-      } else {
-        scene.background.setRGB(0.04, 0.05, 0.1);
-        scene.fog.color.setRGB(0.04, 0.05, 0.1);
-        dirLight.intensity = 0.12;
-        if (timeCounter) {
-          timeCounter.textContent = '🌙 Night';
-          timeCounter.className = 'text-blue-300 font-bold';
-        }
-      }
-
-      player.update(dt);
-      streamWorldAroundPlayer();
-
-      // Update Villager NPCs
-      for (const v of villagers) {
-        v.update(dt, player.position);
-      }
-
-      // Hand Bobbing
-      if (heldContainer && player.walkCycle > 0 && !heldContainer.classList.contains('punch-anim')) {
-        const bobX = Math.sin(player.walkCycle) * 6;
-        const bobY = Math.abs(Math.cos(player.walkCycle)) * 8;
-        heldContainer.style.transform = `translate(${bobX}px, ${bobY}px)`;
-      } else if (heldContainer && !heldContainer.classList.contains('punch-anim')) {
-        heldContainer.style.transform = 'translate(0px, 0px)';
-      }
-
-      // 3D DDA Raycasting
-      camera.getWorldDirection(rayDir);
-      currentRayHit = traceVoxelRay(camera.position, rayDir, 5.5);
-
-      if (currentRayHit.hit) {
-        wireframeBox.position.set(currentRayHit.blockX + 0.5, currentRayHit.blockY + 0.5, currentRayHit.blockZ + 0.5);
-        wireframeBox.visible = true;
-        if (targetCounter) targetCounter.textContent = `Target: ${BLOCK_DEFS[currentRayHit.blockId]?.name || 'Block'}`;
-      } else {
-        wireframeBox.visible = false;
-        if (targetCounter) targetCounter.textContent = 'Target: None';
-      }
-
-      if (posCounter) {
-        const facing = getFacingCardinal(player.yaw);
-        posCounter.textContent = `XYZ: ${player.position.x.toFixed(1)} / ${player.position.y.toFixed(1)} / ${player.position.z.toFixed(1)} (${facing})`;
+        // Update Position Display
+        document.getElementById('pos-display').innerText =
+          `X: ${camera.position.x.toFixed(1)}, Y: ${camera.position.y.toFixed(1)}, Z: ${camera.position.z.toFixed(1)}`;
       }
 
       renderer.render(scene, camera);
+      GameState.animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    /* ===============================================================
+       EVENT LISTENERS & IN-GAME TRIGGERS
+       =============================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      init3D();
+      renderHotbar();
 
-    window.onload = function() {
-      animate();
-    };
+      const menuOverlay = document.getElementById('menu-overlay');
+      const inventoryModal = document.getElementById('inventory-modal');
+
+      // 1. Play Button
+      document.getElementById('btn-play').onclick = () => {
+        SoundEngine.init();
+        SoundEngine.playClick();
+        menuOverlay.classList.add('hidden');
+        GameState.isPaused = false;
+        GameState.isGameRunning = true;
+        GameState.lastTime = performance.now();
+        GameState.animationFrameId = requestAnimationFrame(gameLoop);
+      };
+
+      // 2. Pause / Menu Trigger (Triggers Interstitial Ad safely)
+      document.getElementById('btn-pause').onclick = () => {
+        SoundEngine.playClick();
+        GameState.isPaused = true;
+        menuOverlay.classList.remove('hidden');
+
+        // Trigger interstitial on pause menu
+        AdManager.showInterstitial('pause_menu');
+      };
+
+      // 3. Respawn Trigger (Triggers Interstitial Ad)
+      document.getElementById('btn-respawn').onclick = () => {
+        SoundEngine.playClick();
+        camera.position.set(0, 3, 5);
+        camera.lookAt(0, 1, 0);
+        showToast('📍 Respawned at Oakvale Town Well');
+        menuOverlay.classList.add('hidden');
+        GameState.isPaused = false;
+
+        // Trigger interstitial on player respawn
+        AdManager.showInterstitial('player_respawn');
+      };
+
+      // 4. Inventory Toggle
+      const openInventory = () => {
+        SoundEngine.init();
+        SoundEngine.playClick();
+        renderBackpack();
+        inventoryModal.classList.remove('hidden');
+      };
+      const closeInventory = () => {
+        SoundEngine.playClick();
+        inventoryModal.classList.add('hidden');
+      };
+
+      document.getElementById('btn-inventory-toggle').onclick = openInventory;
+      document.getElementById('btn-close-inventory').onclick = closeInventory;
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'e' || e.key === 'E') {
+          if (inventoryModal.classList.contains('hidden')) openInventory();
+          else closeInventory();
+        } else if (e.key === 'Escape') {
+          if (!inventoryModal.classList.contains('hidden')) closeInventory();
+          else document.getElementById('btn-pause').click();
+        }
+      });
+
+      // 5. REWARDED VIDEO AD BUTTON LISTENER
+      document.getElementById('btn-rewarded-ad').onclick = () => {
+        SoundEngine.init();
+        SoundEngine.playClick();
+
+        AdManager.showRewarded('supply_drop_reward', () => {
+          // Grant 50 Rare Blocks & Diamonds upon successful ad completion
+          GameState.inventory.diamond_block = (GameState.inventory.diamond_block || 0) + 25;
+          GameState.inventory.obsidian = (GameState.inventory.obsidian || 0) + 25;
+
+          // Add to hotbar if not already present
+          if (!GameState.hotbarItems.includes('diamond_block')) {
+            GameState.hotbarItems.push('diamond_block');
+          }
+
+          SoundEngine.playChime();
+          renderBackpack();
+          renderHotbar();
+          showToast('🎉 Reward Granted: +25 Diamond Blocks & +25 Obsidian!');
+        });
+      };
+    });
   </script>
 </body>
 </html>
